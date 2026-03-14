@@ -8,7 +8,6 @@
     "lint:staged": "lint-staged",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "prepare": "husky",
     "commit": "cz"
   },
   "devDependencies": {
