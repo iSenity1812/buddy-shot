@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Keyboard,
   KeyboardAvoidingView,
@@ -11,23 +12,42 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useAuthSubmit } from "../hooks/use-auth-submit";
+import { AuthModeSwitch } from "../components/auth-mode-switch";
+
+type FocusField = "username" | "email" | "password" | null;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const isSignUp = mode === "register";
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const modeAnim = useRef(new Animated.Value(0)).current;
-  const [focusField, setFocusField] = useState<"email" | "password" | null>(
-    null,
-  );
+  const [focusField, setFocusField] = useState<FocusField>(null);
+  const { isSubmitting, errorMessage, clearError, submitAuth } = useAuthSubmit();
 
-  const handleSubmit = () => {
-    // if (!email || !password) {
-    //   return;
-    // }
+  const handleSubmit = async () => {
+    const normalizedEmail = email.trim();
+    const normalizedPassword = password.trim();
 
-    router.replace("/(main)/(camera)");
+    if (!normalizedEmail || !normalizedPassword) {
+      return;
+    }
+
+    const session = await submitAuth({
+      mode,
+      email: normalizedEmail,
+      password: normalizedPassword,
+      username,
+    });
+
+    if (!session) {
+      return;
+    }
+
+    router.replace("/(main)");
   };
 
   const toggleAuthMode = () => {
@@ -44,7 +64,8 @@ export default function LoginScreen() {
       }),
     ]).start();
 
-    setIsSignUp((prev) => !prev);
+    clearError();
+    setMode((prev) => (prev === "login" ? "register" : "login"));
   };
 
   const animatedContentStyle = {
@@ -80,6 +101,39 @@ export default function LoginScreen() {
             </Text>
 
             <View className="w-full gap-4">
+              {isSignUp ? (
+                <View className="relative">
+                  <Feather
+                    name="user"
+                    size={18}
+                    color="hsl(0 0% 40%)"
+                    style={{
+                      position: "absolute",
+                      left: 13,
+                      top: 13,
+                      zIndex: 1,
+                    }}
+                  />
+                  <TextInput
+                    value={username}
+                    onChangeText={(text) => {
+                      setUsername(text);
+                      clearError();
+                    }}
+                    onFocus={() => setFocusField("username")}
+                    onBlur={() => setFocusField(null)}
+                    placeholder="Username"
+                    placeholderTextColor="hsl(0 0% 40%)"
+                    autoCapitalize="none"
+                    className={`w-full bg-muted rounded-xl py-3.5 pl-11 pr-4 text-sm text-foreground ${
+                      focusField === "username"
+                        ? "border-2 border-primary/50"
+                        : "border border-transparent"
+                    }`}
+                  />
+                </View>
+              ) : null}
+
               <View className="relative">
                 <Feather
                   name="mail"
@@ -89,7 +143,10 @@ export default function LoginScreen() {
                 />
                 <TextInput
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    clearError();
+                  }}
                   onFocus={() => setFocusField("email")}
                   onBlur={() => setFocusField(null)}
                   placeholder="Email"
@@ -113,7 +170,10 @@ export default function LoginScreen() {
                 />
                 <TextInput
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    clearError();
+                  }}
                   onFocus={() => setFocusField("password")}
                   onBlur={() => setFocusField(null)}
                   placeholder="Password"
@@ -127,26 +187,30 @@ export default function LoginScreen() {
                 />
               </View>
 
+              {errorMessage ? (
+                <Text className="text-xs text-destructive font-medium px-1">
+                  {errorMessage}
+                </Text>
+              ) : null}
+
               <Pressable
                 onPress={handleSubmit}
-                className="active:scale-95 w-full bg-primary py-3.5 rounded-full items-center"
+                disabled={isSubmitting}
+                className={`active:scale-95 w-full bg-primary py-3.5 rounded-full items-center ${
+                  isSubmitting ? "opacity-70" : ""
+                }`}
               >
-                <Text className="text-base font-semibold text-primary-foreground">
-                  {isSignUp ? "Sign Up" : "Log In"}
-                </Text>
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="hsl(var(--primary-foreground))" />
+                ) : (
+                  <Text className="text-base font-semibold text-primary-foreground">
+                    {isSignUp ? "Sign Up" : "Log In"}
+                  </Text>
+                )}
               </Pressable>
             </View>
 
-            <Pressable onPress={toggleAuthMode} className="mt-6">
-              <Text className="text-sm text-muted-foreground">
-                {isSignUp
-                  ? "Already have an account? "
-                  : "Don't have an account? "}
-                <Text className="text-primary font-semibold">
-                  {isSignUp ? "Log In" : "Sign Up"}
-                </Text>
-              </Text>
-            </Pressable>
+            <AuthModeSwitch mode={mode} onToggle={toggleAuthMode} />
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>

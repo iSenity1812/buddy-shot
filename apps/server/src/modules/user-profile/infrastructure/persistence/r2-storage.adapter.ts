@@ -51,7 +51,10 @@ export class R2StorageAdapter implements IStoragePort {
       Key: key,
       ContentType: "image/*", // allow any image type
     });
-    return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+    return getSignedUrl(this.client, command, {
+      expiresIn: expiresInSeconds,
+      signableHeaders: new Set(["host", "content-type"]),
+    });
   }
 
   async deleteObject(key: string): Promise<void> {
