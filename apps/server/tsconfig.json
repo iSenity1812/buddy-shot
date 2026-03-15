@@ -9,6 +9,13 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["module"],
+    "module": "esnext",
+    "moduleResolution": "node"
   },
   "exclude": ["node_modules", "dist"],
   "include": ["src"]
