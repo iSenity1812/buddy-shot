@@ -1,3 +1,99 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 37 71% 94%;
+    --foreground: 0 0% 18%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 18%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 18%;
+
+    --primary: 16 62% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 37 64% 70%;
+    --secondary-foreground: 0 0% 18%;
+
+    --muted: 37 40% 90%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 209 28% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 37 30% 85%;
+    --input: 37 30% 85%;
+    --ring: 16 62% 60%;
+
+    --radius: 1rem;
+
+    --film-strip: 213 52% 23%;
+    --friend-ring: 37 64% 70%;
+
+    --sidebar-background: 37 71% 94%;
+    --sidebar-foreground: 0 0% 18%;
+    --sidebar-primary: 16 62% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 37 40% 90%;
+    --sidebar-accent-foreground: 0 0% 18%;
+    --sidebar-border: 37 30% 85%;
+    --sidebar-ring: 16 62% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+}
+
+@layer utilities {
+  .font-handwritten {
+    font-family: "Caveat_400Regular";
+  }
+
+  .polaroid-shadow {
+    shadow-color: #000;
+    shadow-offset: 0px 4px;
+    shadow-opacity: 0.12;
+    shadow-radius: 8px;
+    elevation: 4;
+  }
+
+  .polaroid-rotate-1 {
+    transform: rotate(-1.5deg);
+  }
+  .polaroid-rotate-2 {
+    transform: rotate(1deg);
+  }
+  .polaroid-rotate-3 {
+    transform: rotate(-0.5deg);
+  }
+  .polaroid-rotate-4 {
+    transform: rotate(2deg);
+  }
+
+  .film-perforation {
+    background-color: hsl(var(--film-strip));
+  }
+
+  .tap-scale {
+    transform: scale(0.96);
+  }
+
+  .slide-up-enter {
+    transform: translateY(0px);
+    opacity: 1;
+  }
+
+  .safe-bottom {
+    padding-bottom: 16px;
+  }
+}
