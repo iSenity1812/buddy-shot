@@ -1,0 +1,27 @@
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  username     String   @unique
+  avatarKey    String?  @map("avatar_key") // R2 object key, e.g. "avatars/<uuid>.jpg"
+  bio          String?  @db.VarChar(160)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Optimistic locking version field
+  version Int @default(1)
+
+  // Relations
+  sentPhotos      Photo[]          @relation("SentPhotos")
+  photoRecipients PhotoRecipient[] @relation("ReceivedPhotos")
+  reactions       Reaction[]
+  devices         Device[]
+
+  // Friendships (both sides)
+  sentFriendRequests     Friendship[]   @relation("FriendshipRequester")
+  receivedFriendRequests Friendship[]   @relation("FriendshipAddressee")
+  refreshTokens          RefreshToken[]
+
+  @@map("users")
+}

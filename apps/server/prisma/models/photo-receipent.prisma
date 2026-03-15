@@ -1,0 +1,21 @@
+model PhotoRecipient {
+  id          String    @id @default(uuid())
+  photoId     String    @map("photo_id")
+  recipientId String    @map("recipient_id")
+  isViewed    Boolean   @default(false) @map("is_viewed")
+  viewedAt    DateTime? @map("viewed_at")
+  deliveredAt DateTime? @map("delivered_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Optimistic locking
+  version Int @default(1)
+
+  photo     Photo     @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  recipient User      @relation("ReceivedPhotos", fields: [recipientId], references: [id], onDelete: Cascade)
+  reaction  Reaction?
+
+  @@unique([photoId, recipientId])
+  @@index([recipientId, createdAt(sort: Desc)]) // history: received photos
+  @@index([recipientId, isViewed]) // unread badge count
+  @@map("photo_recipients")
+}

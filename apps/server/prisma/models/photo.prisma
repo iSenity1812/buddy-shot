@@ -1,0 +1,14 @@
+model Photo {
+  id        String    @id @default(uuid())
+  senderId  String    @map("sender_id")
+  imageKey  String    @map("image_key") // R2 object key, e.g. "photos/<uuid>.jpg"
+  caption   String?   @db.VarChar(100)
+  expiresAt DateTime? @map("expires_at") // null = no expiry
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  sender     User             @relation("SentPhotos", fields: [senderId], references: [id], onDelete: Cascade)
+  recipients PhotoRecipient[]
+
+  @@index([senderId, createdAt(sort: Desc)])
+  @@map("photos")
+}

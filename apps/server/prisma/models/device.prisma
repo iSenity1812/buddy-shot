@@ -1,0 +1,21 @@
+enum DevicePlatform {
+  IOS
+  ANDROID
+  DESKTOP
+}
+
+model Device {
+  id         String         @id @default(uuid())
+  userId     String         @map("user_id")
+  pushToken  String         @unique @map("push_token")
+  platform   DevicePlatform
+  isActive   Boolean        @default(true) @map("is_active")
+  lastSeenAt DateTime?      @map("last_seen_at")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([userId, isActive])
+  @@map("devices")
+}

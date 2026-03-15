@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "DevicePlatform" ADD VALUE IF NOT EXISTS 'DESKTOP';
