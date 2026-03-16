@@ -55,11 +55,13 @@ function PasswordInput({
 interface UpdatePasswordModalProps {
   visible: boolean;
   onClose: () => void;
+  onSave: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 export default function UpdatePasswordModal({
   visible,
   onClose,
+  onSave,
 }: UpdatePasswordModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -69,6 +71,7 @@ export default function UpdatePasswordModal({
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -88,11 +91,7 @@ export default function UpdatePasswordModal({
       setErrors({ currentPassword: "Enter your current password" });
       return;
     }
-    // Mock verification — replace with real API call
-    if (currentPassword !== "password123") {
-      setErrors({ currentPassword: "Incorrect current password" });
-      return;
-    }
+
     setErrors({});
     setStep(2);
   };
@@ -114,14 +113,32 @@ export default function UpdatePasswordModal({
     return errs;
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
+    if (isSaving) {
+      return;
+    }
+
     const errs = validateNewPasswords();
+    if (newPassword === currentPassword) {
+      errs.newPassword = "New password must be different from current password";
+    }
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
-    Alert.alert("Password changed", "Your password has been updated.");
-    onClose();
+
+    try {
+      setIsSaving(true);
+      const ok = await onSave(currentPassword, newPassword);
+      if (!ok) {
+        return;
+      }
+
+      Alert.alert("Password changed", "Your password has been updated.");
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -215,11 +232,13 @@ export default function UpdatePasswordModal({
               </View>
 
               <Pressable
-                onPress={handleUpdate}
+                onPress={() => void handleUpdate()}
+                disabled={isSaving}
                 className="w-full rounded-full bg-primary py-3.5 items-center active:scale-95"
+                style={{ opacity: isSaving ? 0.6 : 1 }}
               >
                 <Text className="font-semibold text-primary-foreground">
-                  Update Password
+                  {isSaving ? "Updating..." : "Update Password"}
                 </Text>
               </Pressable>
 

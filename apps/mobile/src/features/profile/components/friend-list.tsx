@@ -10,29 +10,30 @@ const INITIAL_COUNT = 3;
 interface Props {
   friends: Friend[];
   onAddFriend?: () => void;
-  onDeleteFriend?: () => void;
+  onDeleteFriend?: (friend: Friend) => void;
   avatarSize?: number;
 }
 
 export default function FriendsList({
   friends,
   onAddFriend,
+  onDeleteFriend,
   avatarSize = 46,
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const canToggle = friends.length > INITIAL_COUNT;
 
-  const handleDeleteFriend = (name: string) => {
+  const handleDeleteFriend = (friend: Friend) => {
     Alert.alert(
       "Delete your friend?",
-      `Are you sure you want to delete ${name}?`,
+      `Are you sure you want to delete ${friend.name}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            Alert.alert("Friend deleted", ` ${name} has been removed.`);
+            onDeleteFriend?.(friend);
           },
         },
       ],
@@ -82,7 +83,7 @@ export default function FriendsList({
                   </Text>
                 </View>
                 <Pressable
-                  onPress={() => handleDeleteFriend(friend.name)}
+                  onPress={() => handleDeleteFriend(friend)}
                   className="active:scale-95 flex-row items-center gap-1 bg-primary px-3 py-1.5 rounded-full"
                 >
                   <Entypo name="cross" size={14} color="white" />

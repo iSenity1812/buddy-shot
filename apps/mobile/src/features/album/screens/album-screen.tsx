@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   Animated,
   Pressable,
   ScrollView,
@@ -9,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { photoPosts, friends } from "@/src/data/mockData";
+import { useFocusEffect } from "@react-navigation/native";
 import MainBottomNav from "../../../components/navigation/main-bottom-nav";
 import useMainScreenSwipe from "../../../hooks/use-main-screen-swipe";
 import FriendSelector from "@/src/components/ui/FriendSelector";
@@ -17,8 +18,15 @@ import PolaroidCard from "@/src/components/ui/PolaroidCard";
 import FilmStripRow from "@/src/components/ui/FilmStripRow";
 import PhotoViewer from "../../../components/ui/PhotoViewer";
 import { PhotoPost } from "@/src/types/Photo";
+import { Friend } from "@/src/types/User";
+import { HttpError } from "@/src/services/http/axios.config";
+import { photosApi } from "@/src/services/api/photos.api";
+import { socialApi } from "@/src/services/api/social.api";
 
 export default function AlbumScreen() {
+  const [posts, setPosts] = useState<PhotoPost[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [layout, setLayout] = useState<"grid" | "film">("grid");
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [viewerData, setViewerData] = useState<{
@@ -31,12 +39,39 @@ export default function AlbumScreen() {
     disabled: viewerData !== null,
   });
 
+  const loadAlbumData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [feed, friendList] = await Promise.all([
+        photosApi.listFeed(),
+        socialApi.listFriends(),
+      ]);
+
+      setPosts(feed);
+      setFriends(friendList);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Load memories failed", error.message);
+      } else {
+        Alert.alert("Load memories failed", "Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadAlbumData();
+    }, [loadAlbumData]),
+  );
+
   const filteredPosts = useMemo(
     () =>
       selectedFriend
-        ? photoPosts.filter((post) => post.sender.id === selectedFriend)
-        : photoPosts,
-    [selectedFriend],
+        ? posts.filter((post) => post.sender.id === selectedFriend)
+        : posts,
+    [posts, selectedFriend],
   );
 
   const postsByFriend = useMemo(
@@ -48,10 +83,10 @@ export default function AlbumScreen() {
         })
         .map((friend) => ({
           friend,
-          posts: photoPosts.filter((post) => post.sender.id === friend.id),
+          posts: posts.filter((post) => post.sender.id === friend.id),
         }))
         .filter((group) => group.posts.length > 0),
-    [searchQuery],
+    [friends, posts, searchQuery],
   );
 
   const openViewer = (post: PhotoPost, postsContext: PhotoPost[]) => {
@@ -96,6 +131,7 @@ export default function AlbumScreen() {
 
             {layout === "grid" ? (
               <FriendSelector
+                friends={friends}
                 selected={selectedFriend}
                 onSelect={setSelectedFriend}
               />
@@ -158,13 +194,19 @@ export default function AlbumScreen() {
                 <View className="px-4">
                   <View className="bg-card rounded-2xl px-4 py-6 items-center">
                     <Text className="text-sm text-muted-foreground text-center">
-                      No friends matched your search.
+                      No posts available yet.
                     </Text>
                   </View>
                 </View>
               ) : null}
             </View>
           )}
+
+          {isLoading ? (
+            <View className="px-4 pt-3">
+              <Text className="text-sm text-muted-foreground">Loading memories...</Text>
+            </View>
+          ) : null}
         </ScrollView>
 
         {viewerData ? (

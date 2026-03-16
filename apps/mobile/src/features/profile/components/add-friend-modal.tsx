@@ -5,7 +5,9 @@ import DraggableBottomSheetModal from "@/src/components/ui/DraggableBottomSheetM
 interface AddFriendModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (username: string) => boolean;
+  onSubmit: (
+    username: string,
+  ) => Promise<{ ok: boolean; errorMessage?: string; successMessage?: string }>;
 }
 
 export default function AddFriendModal({
@@ -15,6 +17,7 @@ export default function AddFriendModal({
 }: AddFriendModalProps) {
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -34,7 +37,11 @@ export default function AddFriendModal({
     return "";
   };
 
-  const handleAddFriend = () => {
+  const handleAddFriend = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     const validationError = validate(username);
     if (validationError) {
       setError(validationError);
@@ -42,15 +49,26 @@ export default function AddFriendModal({
     }
 
     const trimmed = username.trim();
-    const accepted = onSubmit(trimmed);
+    try {
+      setIsSubmitting(true);
+      const result = await onSubmit(trimmed);
 
-    if (!accepted) {
-      setError("Cannot send request. Username not found or already connected.");
-      return;
+      if (!result.ok) {
+        setError(
+          result.errorMessage ??
+            "Cannot send request. Username not found or already connected.",
+        );
+        return;
+      }
+
+      onClose();
+      Alert.alert(
+        "Request sent",
+        result.successMessage ?? `Friend request sent to @${trimmed}.`,
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    onClose();
-    Alert.alert("Request sent", `Friend request sent to @${trimmed}.`);
   };
 
   return (
@@ -87,11 +105,13 @@ export default function AddFriendModal({
         </View>
 
         <Pressable
-          onPress={handleAddFriend}
+          onPress={() => void handleAddFriend()}
+          disabled={isSubmitting}
           className="w-full rounded-full bg-primary py-3.5 items-center active:scale-95"
+          style={{ opacity: isSubmitting ? 0.6 : 1 }}
         >
           <Text className="font-semibold text-primary-foreground">
-            Send Request
+            {isSubmitting ? "Sending..." : "Send Request"}
           </Text>
         </Pressable>
       </View>

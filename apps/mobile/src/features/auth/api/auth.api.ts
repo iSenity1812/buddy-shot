@@ -20,6 +20,21 @@ interface LogoutPayload {
   allDevices?: boolean;
 }
 
+interface UpdateEmailPayload {
+  email: string;
+}
+
+interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+interface AccountUser {
+  id: string;
+  email: string;
+  username: string;
+}
+
 function normalizeDevicePlatform(platform?: DevicePlatform): DevicePlatform {
   if (platform) {
     return platform;
@@ -79,5 +94,23 @@ export const authApi = {
       payload,
     );
     setAuthAccessToken(null);
+  },
+
+  me(): Promise<AccountUser> {
+    return httpClient.get<AccountUser>(AUTH_ENDPOINTS.me);
+  },
+
+  updateEmail(payload: UpdateEmailPayload): Promise<AccountUser> {
+    return httpClient.patch<AccountUser, UpdateEmailPayload>(
+      AUTH_ENDPOINTS.updateEmail,
+      payload,
+    );
+  },
+
+  changePassword(payload: ChangePasswordPayload): Promise<void> {
+    return httpClient.patch<void, ChangePasswordPayload>(
+      AUTH_ENDPOINTS.changePassword,
+      payload,
+    );
   },
 };

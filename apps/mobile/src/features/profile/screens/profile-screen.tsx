@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Animated,
@@ -8,12 +8,9 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  friends as initialFriends,
-  incomingFriendRequests,
-  photoPosts,
-} from "@/src/data/mockData";
 import MainBottomNav from "../../../components/navigation/main-bottom-nav";
 import useMainScreenSwipe from "../../../hooks/use-main-screen-swipe";
 import PhotoCalendar from "@/src/components/ui/PhotoCalendar";
@@ -22,20 +19,33 @@ import UserAvatar from "@/src/components/ui/UserAvatar";
 import SettingsSheet from "../components/setting-sheet";
 import AddFriendModal from "../components/add-friend-modal";
 import FriendRequestList from "../components/friend-request-list";
-import { FriendRequest } from "@/src/types/User";
+import { Friend, FriendRequest } from "@/src/types/User";
+import { PhotoPost } from "@/src/types/Photo";
+import { authApi } from "@/src/features/auth/api/auth.api";
+import { HttpError } from "@/src/services/http/axios.config";
+import { profileApi } from "@/src/services/api/profile.api";
+import {
+  socialApi,
+  type SearchUser,
+} from "@/src/services/api/social.api";
+import type { ImagePickerAsset } from "expo-image-picker";
 
 export default function ProfileScreen() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [username, setUsername] = useState("yourname");
   const [email, setEmail] = useState("you@example.com");
-  const [friends, setFriends] = useState(initialFriends);
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(
-    incomingFriendRequests,
-  );
+  const [avatarUrl, setAvatarUrl] = useState("https://i.pravatar.cc/150?img=32");
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [photoPosts] = useState<PhotoPost[]>([]);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [isAuthActionLoading, setIsAuthActionLoading] = useState(false);
+  const [isSocialActionLoading, setIsSocialActionLoading] = useState(false);
+  const [isProfileActionLoading, setIsProfileActionLoading] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(false);
   const { panHandlers, animatedStyle } = useMainScreenSwipe({
     mode: "profile",
     disabled:
@@ -43,8 +53,43 @@ export default function ProfileScreen() {
       isAddFriendOpen ||
       usernameModalOpen ||
       emailModalOpen ||
-      passwordModalOpen,
+      passwordModalOpen ||
+      isAuthActionLoading ||
+        isSocialActionLoading ||
+        isProfileActionLoading,
   });
+
+  const loadProfileData = useCallback(async () => {
+    try {
+      setIsDataLoading(true);
+      const [me, account, fetchedFriends, fetchedRequests] = await Promise.all([
+        profileApi.getMe(),
+        authApi.me(),
+        socialApi.listFriends(),
+        socialApi.listIncomingRequests(),
+      ]);
+
+      setUsername(me.username);
+      setEmail(account.email);
+      setAvatarUrl(me.avatarUrl || "https://i.pravatar.cc/150?img=32");
+      setFriends(fetchedFriends);
+      setFriendRequests(fetchedRequests);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Load profile failed", error.message);
+      } else {
+        Alert.alert("Load profile failed", "Please try again.");
+      }
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfileData();
+    }, [loadProfileData]),
+  );
 
   const friendUsernames = useMemo(
     () => new Set(friends.map((friend) => friend.name.toLowerCase())),
@@ -59,35 +104,124 @@ export default function ProfileScreen() {
     [friendRequests],
   );
 
-  const handleSendFriendRequest = (targetUsername: string): boolean => {
+  const findExactUsernameMatch = (
+    users: SearchUser[],
+    targetUsername: string,
+  ): SearchUser | undefined => {
+    const normalized = targetUsername.toLowerCase();
+    return users.find((user) => user.username.toLowerCase() === normalized);
+  };
+
+  const handleSendFriendRequest = async (
+    targetUsername: string,
+  ): Promise<{ ok: boolean; errorMessage?: string; successMessage?: string }> => {
+    if (isSocialActionLoading) {
+      return {
+        ok: false,
+        errorMessage: "Please wait for the current action to finish.",
+      };
+    }
+
     const normalized = targetUsername.toLowerCase();
 
     if (normalized === username.toLowerCase()) {
-      return false;
+      return { ok: false, errorMessage: "You cannot add yourself." };
     }
 
     if (friendUsernames.has(normalized) || requestUsernames.has(normalized)) {
-      return false;
+      return {
+        ok: false,
+        errorMessage: "Already connected or waiting for this request.",
+      };
     }
 
-    return true;
+    try {
+      setIsSocialActionLoading(true);
+
+      const matches = await socialApi.searchUsersByUsername(targetUsername, 10);
+      const exactMatch = findExactUsernameMatch(matches, targetUsername);
+
+      if (!exactMatch) {
+        return {
+          ok: false,
+          errorMessage: "Username not found.",
+        };
+      }
+
+      if (exactMatch.relationshipStatus === "FRIEND") {
+        return {
+          ok: false,
+          errorMessage: "You are already friends with this user.",
+        };
+      }
+
+      if (exactMatch.relationshipStatus === "PENDING_INCOMING") {
+        return {
+          ok: false,
+          errorMessage:
+            "This user already sent you a request. Please accept it from the request list.",
+        };
+      }
+
+      if (exactMatch.relationshipStatus === "PENDING_OUTGOING") {
+        return {
+          ok: false,
+          errorMessage: "Friend request already sent.",
+        };
+      }
+
+      await socialApi.sendFriendRequest(exactMatch.userId);
+
+      return {
+        ok: true,
+        successMessage: `Friend request sent to @${exactMatch.username}.`,
+      };
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return {
+          ok: false,
+          errorMessage: error.message,
+        };
+      }
+
+      return {
+        ok: false,
+        errorMessage: "Failed to send friend request. Please try again.",
+      };
+    } finally {
+      setIsSocialActionLoading(false);
+    }
   };
 
-  const handleAcceptRequest = (requestId: string) => {
+  const handleAcceptRequest = async (requestId: string) => {
+    if (isSocialActionLoading) return;
+
     const acceptedRequest = friendRequests.find(
       (request) => request.id === requestId,
     );
 
     if (!acceptedRequest) return;
 
-    setFriends((prev) => [...prev, acceptedRequest.sender]);
-    setFriendRequests((prev) =>
-      prev.filter((request) => request.id !== requestId),
-    );
-    Alert.alert(
-      "Friend added",
-      `${acceptedRequest.sender.name} is now your friend.`,
-    );
+    try {
+      setIsSocialActionLoading(true);
+      await socialApi.respondToRequest(requestId, "accept");
+      setFriends((prev) => [...prev, acceptedRequest.sender]);
+      setFriendRequests((prev) =>
+        prev.filter((request) => request.id !== requestId),
+      );
+      Alert.alert(
+        "Friend added",
+        `${acceptedRequest.sender.name} is now your friend.`,
+      );
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Accept failed", error.message);
+      } else {
+        Alert.alert("Accept failed", "Please try again.");
+      }
+    } finally {
+      setIsSocialActionLoading(false);
+    }
   };
 
   const handleDenyRequest = (requestId: string) => {
@@ -104,18 +238,176 @@ export default function ProfileScreen() {
         {
           text: "Deny",
           style: "destructive",
-          onPress: () => {
-            setFriendRequests((prev) =>
-              prev.filter((request) => request.id !== requestId),
-            );
-            Alert.alert(
-              "Request denied",
-              `You denied ${deniedRequest.sender.name}'s request.`,
-            );
+          onPress: async () => {
+            if (isSocialActionLoading) return;
+
+            try {
+              setIsSocialActionLoading(true);
+              await socialApi.respondToRequest(requestId, "reject");
+              setFriendRequests((prev) =>
+                prev.filter((request) => request.id !== requestId),
+              );
+              Alert.alert(
+                "Request denied",
+                `You denied ${deniedRequest.sender.name}'s request.`,
+              );
+            } catch (error) {
+              if (error instanceof HttpError) {
+                Alert.alert("Deny failed", error.message);
+              } else {
+                Alert.alert("Deny failed", "Please try again.");
+              }
+            } finally {
+              setIsSocialActionLoading(false);
+            }
           },
         },
       ],
     );
+  };
+
+  const handleDeleteFriend = async (friend: Friend) => {
+    if (isSocialActionLoading) return;
+
+    try {
+      setIsSocialActionLoading(true);
+      await socialApi.removeFriend(friend.id);
+      setFriends((prev) => prev.filter((item) => item.id !== friend.id));
+      Alert.alert("Friend removed", `${friend.name} has been removed.`);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Remove friend failed", error.message);
+      } else {
+        Alert.alert("Remove friend failed", "Please try again.");
+      }
+    } finally {
+      setIsSocialActionLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (isAuthActionLoading) return;
+
+    try {
+      setIsAuthActionLoading(true);
+      await authApi.logout({ allDevices: true });
+      setIsSettingsOpen(false);
+      router.replace("/(auth)/login");
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Sign out failed", error.message);
+      } else {
+        Alert.alert("Sign out failed", "Please try again.");
+      }
+    } finally {
+      setIsAuthActionLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete account unavailable",
+      "Server API contract currently does not expose a delete-account endpoint. Please use Sign Out for now.",
+    );
+  };
+
+  const handleUpdateUsername = async (newUsername: string): Promise<boolean> => {
+    if (isProfileActionLoading) {
+      return false;
+    }
+
+    try {
+      setIsProfileActionLoading(true);
+      const updated = await profileApi.updateMe({ username: newUsername });
+      setUsername(updated.username);
+      return true;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Update username failed", error.message);
+      } else {
+        Alert.alert("Update username failed", "Please try again.");
+      }
+      return false;
+    } finally {
+      setIsProfileActionLoading(false);
+    }
+  };
+
+  const handleUpdateEmail = async (_newEmail: string): Promise<boolean> => {
+    if (isProfileActionLoading) {
+      return false;
+    }
+
+    try {
+      setIsProfileActionLoading(true);
+      const updated = await authApi.updateEmail({ email: _newEmail });
+      setEmail(updated.email);
+      return true;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Update email failed", error.message);
+      } else {
+        Alert.alert("Update email failed", "Please try again.");
+      }
+      return false;
+    } finally {
+      setIsProfileActionLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<boolean> => {
+    if (isProfileActionLoading) {
+      return false;
+    }
+
+    try {
+      setIsProfileActionLoading(true);
+      await authApi.changePassword({
+        currentPassword,
+        newPassword,
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        if (error.code === "INVALID_CREDENTIALS") {
+          Alert.alert("Change password failed", "Current password is incorrect.");
+        } else {
+          Alert.alert("Change password failed", error.message);
+        }
+      } else {
+        Alert.alert("Change password failed", "Please try again.");
+      }
+      return false;
+    } finally {
+      setIsProfileActionLoading(false);
+    }
+  };
+
+  const handleUpdateAvatar = async (
+    asset: ImagePickerAsset,
+  ): Promise<boolean> => {
+    if (isProfileActionLoading) {
+      return false;
+    }
+
+    try {
+      setIsProfileActionLoading(true);
+      const updated = await profileApi.uploadAvatarFromLocalUri(asset.uri);
+      setAvatarUrl(updated.avatarUrl || "https://i.pravatar.cc/150?img=32");
+      return true;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        Alert.alert("Update avatar failed", error.message);
+      } else {
+        Alert.alert("Update avatar failed", "Please try again.");
+      }
+      return false;
+    } finally {
+      setIsProfileActionLoading(false);
+    }
   };
 
   return (
@@ -144,7 +436,7 @@ export default function ProfileScreen() {
           {/* Avatar + Info */}
           <View className="items-center py-6">
             <UserAvatar
-              avatarUrl={"https://i.pravatar.cc/150?img=32"}
+              avatarUrl={avatarUrl}
               size={100}
               ringWidth={4}
               ringClassName="border-primary/30"
@@ -169,14 +461,25 @@ export default function ProfileScreen() {
           <FriendsList
             friends={friends}
             onAddFriend={() => setIsAddFriendOpen(true)}
+            onDeleteFriend={(friend) => {
+              void handleDeleteFriend(friend);
+            }}
           />
 
           {friendRequests.length > 0 ? (
             <FriendRequestList
               requests={friendRequests}
-              onAccept={handleAcceptRequest}
+              onAccept={(requestId) => {
+                void handleAcceptRequest(requestId);
+              }}
               onDeny={handleDenyRequest}
             />
+          ) : null}
+
+          {isDataLoading ? (
+            <View className="px-4 mt-3">
+              <Text className="text-sm text-muted-foreground">Loading profile data...</Text>
+            </View>
           ) : null}
 
           {/* Photo Calendar */}
@@ -191,6 +494,7 @@ export default function ProfileScreen() {
         <SettingsSheet
           open={isSettingsOpen}
           onOpenChange={setIsSettingsOpen}
+          avatarUrl={avatarUrl}
           username={username}
           email={email}
           onEditUsername={() => setUsernameModalOpen(true)}
@@ -198,12 +502,17 @@ export default function ProfileScreen() {
           onEditPassword={() => setPasswordModalOpen(true)}
           usernameModalOpen={usernameModalOpen}
           onUsernameModalClose={() => setUsernameModalOpen(false)}
-          onUsernameSave={setUsername}
+          onUsernameSave={handleUpdateUsername}
           emailModalOpen={emailModalOpen}
           onEmailModalClose={() => setEmailModalOpen(false)}
-          onEmailSave={setEmail}
+          onEmailSave={handleUpdateEmail}
           passwordModalOpen={passwordModalOpen}
           onPasswordModalClose={() => setPasswordModalOpen(false)}
+          onPasswordSave={handleChangePassword}
+          onAvatarSave={handleUpdateAvatar}
+          onSignOut={() => void handleSignOut()}
+          onDeleteAccount={handleDeleteAccount}
+          authActionLoading={isAuthActionLoading || isProfileActionLoading}
         />
 
         <AddFriendModal

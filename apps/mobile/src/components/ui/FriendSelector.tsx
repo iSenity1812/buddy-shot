@@ -1,13 +1,14 @@
-import { friends } from "@/src/data/mockData";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import UserAvatar from "@/src/components/ui/UserAvatar";
+import { Friend } from "@/src/types/User";
 
 interface Props {
+  friends: Friend[];
   selected: string | null;
   onSelect: (id: string | null) => void;
 }
 
-const FriendSelector = ({ selected, onSelect }: Props) => {
+const FriendSelector = ({ friends, selected, onSelect }: Props) => {
   return (
     <ScrollView
       horizontal

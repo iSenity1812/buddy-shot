@@ -11,6 +11,7 @@ import UpdatePasswordModal from "./update-password-modal";
 interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  avatarUrl: string;
   username: string;
   email: string;
   onEditUsername: () => void;
@@ -18,17 +19,26 @@ interface SettingsSheetProps {
   onEditPassword: () => void;
   usernameModalOpen: boolean;
   onUsernameModalClose: () => void;
-  onUsernameSave: (v: string) => void;
+  onUsernameSave: (v: string) => Promise<boolean>;
   emailModalOpen: boolean;
   onEmailModalClose: () => void;
-  onEmailSave: (v: string) => void;
+  onEmailSave: (v: string) => Promise<boolean>;
   passwordModalOpen: boolean;
   onPasswordModalClose: () => void;
+  onPasswordSave: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<boolean>;
+  onAvatarSave: (asset: ImagePicker.ImagePickerAsset) => Promise<boolean>;
+  onSignOut: () => void;
+  onDeleteAccount: () => void;
+  authActionLoading?: boolean;
 }
 
 export default function SettingsSheet({
   open,
   onOpenChange,
+  avatarUrl,
   username,
   email,
   onEditUsername,
@@ -42,17 +52,33 @@ export default function SettingsSheet({
   onEmailSave,
   passwordModalOpen,
   onPasswordModalClose,
+  onPasswordSave,
+  onAvatarSave,
+  onSignOut,
+  onDeleteAccount,
+  authActionLoading = false,
 }: SettingsSheetProps) {
-  const [avatarPreview, setAvatarPreview] = useState(
-    "https://i.pravatar.cc/150?img=32",
-  );
+  const [isAvatarSaving, setIsAvatarSaving] = useState(false);
 
-  const applyAvatarAsset = (asset: ImagePicker.ImagePickerAsset) => {
+  const applyAvatarAsset = async (asset: ImagePicker.ImagePickerAsset) => {
     if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
       Alert.alert("File too large", "Avatar must be under 5MB");
       return;
     }
-    setAvatarPreview(asset.uri);
+
+    if (isAvatarSaving) {
+      return;
+    }
+
+    try {
+      setIsAvatarSaving(true);
+      const ok = await onAvatarSave(asset);
+      if (ok) {
+        Alert.alert("Avatar updated", "Your avatar has been saved.");
+      }
+    } finally {
+      setIsAvatarSaving(false);
+    }
   };
 
   const pickAvatarFromLibrary = async () => {
@@ -73,7 +99,7 @@ export default function SettingsSheet({
     });
 
     if (result.canceled) return;
-    applyAvatarAsset(result.assets[0]);
+    await applyAvatarAsset(result.assets[0]);
   };
 
   const takeAvatarWithCamera = async () => {
@@ -93,7 +119,7 @@ export default function SettingsSheet({
     });
 
     if (result.canceled) return;
-    applyAvatarAsset(result.assets[0]);
+    await applyAvatarAsset(result.assets[0]);
   };
 
   const handleAvatarChange = () => {
@@ -110,10 +136,7 @@ export default function SettingsSheet({
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: () => {
-          Alert.alert("Signed out", "You have been signed out.");
-          onOpenChange(false);
-        },
+        onPress: onSignOut,
       },
     ]);
   };
@@ -127,10 +150,7 @@ export default function SettingsSheet({
         {
           text: "Delete Forever",
           style: "destructive",
-          onPress: () => {
-            Alert.alert("Account deleted", "Your account has been removed.");
-            onOpenChange(false);
-          },
+          onPress: onDeleteAccount,
         },
       ],
     );
@@ -155,14 +175,16 @@ export default function SettingsSheet({
           <View className="flex-row items-center gap-4">
             <View className="relative">
               <UserAvatar
-                avatarUrl={avatarPreview}
+                avatarUrl={avatarUrl}
                 size={80}
                 ringWidth={2}
                 ringClassName="border-primary"
               />
               <Pressable
                 onPress={handleAvatarChange}
+                disabled={isAvatarSaving || authActionLoading}
                 className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1.5 active:scale-95"
+                style={{ opacity: isAvatarSaving || authActionLoading ? 0.6 : 1 }}
               >
                 <Feather
                   name="camera"
@@ -243,7 +265,9 @@ export default function SettingsSheet({
 
           <Pressable
             onPress={handleSignOut}
+            disabled={authActionLoading}
             className="w-full rounded-full border border-destructive/30 py-3.5 items-center active:scale-95"
+            style={{ opacity: authActionLoading ? 0.6 : 1 }}
           >
             <View className="flex-row items-center gap-2">
               <Feather
@@ -257,7 +281,9 @@ export default function SettingsSheet({
 
           <Pressable
             onPress={handleDeleteAccount}
+            disabled={authActionLoading}
             className="w-full rounded-full bg-destructive py-3.5 items-center active:scale-95"
+            style={{ opacity: authActionLoading ? 0.6 : 1 }}
           >
             <View className="flex-row items-center gap-2">
               <Feather
@@ -290,6 +316,7 @@ export default function SettingsSheet({
       <UpdatePasswordModal
         visible={passwordModalOpen}
         onClose={onPasswordModalClose}
+        onSave={onPasswordSave}
       />
     </DraggableBottomSheetModal>
   );

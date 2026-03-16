@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Keyboard,
   KeyboardAvoidingView,
@@ -16,10 +17,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { friends } from "@/src/data/mockData";
+import { Friend } from "@/src/types/User";
 import DownloadImageButton from "../components/download-image-button";
+import { HttpError } from "@/src/services/http/axios.config";
+import { socialApi } from "@/src/services/api/social.api";
 
 export default function SendPhotoScreen() {
+  const [friends, setFriends] = useState<Friend[]>([]);
   const params = useLocalSearchParams<{ imageUri?: string }>();
   const image =
     typeof params.imageUri === "string" && params.imageUri.length > 0
@@ -32,6 +36,33 @@ export default function SendPhotoScreen() {
   const [isSent, setIsSent] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const isLocked = isSending || isSent;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRecipients = async () => {
+      try {
+        const data = await socialApi.listFriends();
+        if (isMounted) {
+          setFriends(data);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+
+        if (error instanceof HttpError) {
+          Alert.alert("Load recipients failed", error.message);
+        } else {
+          Alert.alert("Load recipients failed", "Please try again.");
+        }
+      }
+    };
+
+    void loadRecipients();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const toggleFriend = (id: string) => {
     setAllSelected(false);
@@ -180,6 +211,14 @@ export default function SendPhotoScreen() {
                         </Pressable>
                       );
                     })}
+
+                    {friends.length === 0 ? (
+                      <View className="px-1 py-2">
+                        <Text className="text-xs text-muted-foreground">
+                          No recipients available.
+                        </Text>
+                      </View>
+                    ) : null}
                   </ScrollView>
                 </View>
               </ScrollView>

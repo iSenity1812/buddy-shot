@@ -6,7 +6,7 @@ interface UpdateUsernameModalProps {
   visible: boolean;
   onClose: () => void;
   currentUsername: string;
-  onSave: (newUsername: string) => void;
+  onSave: (newUsername: string) => Promise<boolean>;
 }
 
 export default function UpdateUsernameModal({
@@ -17,6 +17,7 @@ export default function UpdateUsernameModal({
 }: UpdateUsernameModalProps) {
   const [username, setUsername] = useState(currentUsername);
   const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -34,15 +35,29 @@ export default function UpdateUsernameModal({
     return "";
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) {
+      return;
+    }
+
     const err = validate(username);
     if (err) {
       setError(err);
       return;
     }
-    onSave(username.trim());
-    onClose();
-    Alert.alert("Username updated", "Your username has been saved.");
+
+    try {
+      setIsSaving(true);
+      const ok = await onSave(username.trim());
+      if (!ok) {
+        return;
+      }
+
+      onClose();
+      Alert.alert("Username updated", "Your username has been saved.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -77,10 +92,14 @@ export default function UpdateUsernameModal({
         </View>
 
         <Pressable
-          onPress={handleSave}
+          onPress={() => void handleSave()}
+          disabled={isSaving}
           className="w-full rounded-full bg-primary py-3.5 items-center active:scale-95"
+          style={{ opacity: isSaving ? 0.6 : 1 }}
         >
-          <Text className="font-semibold text-primary-foreground">Save</Text>
+          <Text className="font-semibold text-primary-foreground">
+            {isSaving ? "Saving..." : "Save"}
+          </Text>
         </Pressable>
       </View>
     </DraggableBottomSheetModal>

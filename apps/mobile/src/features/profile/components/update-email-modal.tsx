@@ -6,7 +6,7 @@ interface UpdateEmailModalProps {
   visible: boolean;
   onClose: () => void;
   currentEmail: string;
-  onSave: (newEmail: string) => void;
+  onSave: (newEmail: string) => Promise<boolean>;
 }
 
 export default function UpdateEmailModal({
@@ -17,6 +17,7 @@ export default function UpdateEmailModal({
 }: UpdateEmailModalProps) {
   const [email, setEmail] = useState(currentEmail);
   const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -32,15 +33,29 @@ export default function UpdateEmailModal({
     return "";
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) {
+      return;
+    }
+
     const err = validate(email);
     if (err) {
       setError(err);
       return;
     }
-    onSave(email.trim());
-    onClose();
-    Alert.alert("Email updated", "Your email has been saved.");
+
+    try {
+      setIsSaving(true);
+      const ok = await onSave(email.trim());
+      if (!ok) {
+        return;
+      }
+
+      onClose();
+      Alert.alert("Email updated", "Your email has been saved.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -74,10 +89,14 @@ export default function UpdateEmailModal({
         </View>
 
         <Pressable
-          onPress={handleSave}
+          onPress={() => void handleSave()}
+          disabled={isSaving}
           className="w-full rounded-full bg-primary py-3.5 items-center active:scale-95"
+          style={{ opacity: isSaving ? 0.6 : 1 }}
         >
-          <Text className="font-semibold text-primary-foreground">Save</Text>
+          <Text className="font-semibold text-primary-foreground">
+            {isSaving ? "Saving..." : "Save"}
+          </Text>
         </Pressable>
       </View>
     </DraggableBottomSheetModal>
