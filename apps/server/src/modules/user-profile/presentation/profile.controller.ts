@@ -1,11 +1,19 @@
 import type { NextFunction, Request, Response } from "express";
+import { randomUUID } from "crypto";
+import multer from "multer";
 import { inject } from "inversify";
-import { controller, httpGet, httpPatch, httpPost } from "inversify-express-utils";
+import {
+  controller,
+  httpGet,
+  httpPatch,
+  httpPost,
+} from "inversify-express-utils";
 import { GetProfileUseCase } from "../application/use-cases/get-profile.usecase";
 import { UpdateProfileUseCase } from "../application/use-cases/update-profile.usecase";
 import { ChangeAvatarUseCase } from "../application/use-cases/change-avatar.usecase";
 import { GenerateProfileQrCodeUseCase } from "../application/use-cases/generate-profile-qrcode.usecase";
 import { GenerateAvatarUploadUrlUseCase } from "../application/use-cases/generate-avatar-upload-url.usecase";
+import type { IStoragePort } from "../application/ports/storage.port";
 import { PROFILE_KEY } from "../di/profile.token";
 import { ok } from "@/shared/http/builder/response.factory";
 import {
@@ -14,11 +22,17 @@ import {
 } from "@/shared/security/role.decorator";
 import { Role } from "@/shared/types/role.enum";
 import {
+  DomainError,
   ForbiddenError,
   UnauthorizedError,
 } from "@/shared/errors/domain-error";
 import jwt from "jsonwebtoken";
 import { envConfig } from "@/shared/config/env.config";
+
+const AVATAR_UPLOAD_MIDDLEWARE = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 @controller("/profiles")
 export class ProfileController {
@@ -37,6 +51,9 @@ export class ProfileController {
 
     @inject(PROFILE_KEY.USE_CASE.GENERATE_AVATAR_UPLOAD_URL)
     private readonly generateAvatarUploadUrlUseCase: GenerateAvatarUploadUrlUseCase,
+
+    @inject(PROFILE_KEY.PORT.STORAGE)
+    private readonly storagePort: IStoragePort,
   ) {}
 
   @httpGet("/me")
@@ -157,6 +174,59 @@ export class ProfileController {
     }
   }
 
+  @httpPost("/me/avatar/upload-direct", AVATAR_UPLOAD_MIDDLEWARE.single("file"))
+  @RoleDecorator(Role.USER, Role.ADMIN)
+  async uploadMyAvatarDirectly(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> {
+    try {
+      const userId = this.getAuthorizedUserId(req, "uploadMyAvatarDirectly");
+      const file = (req as Request & { file?: multer.Multer.File }).file;
+
+      if (!file) {
+        throw new DomainError(
+          "VALIDATION_ERROR",
+          "Missing file. Send multipart/form-data with field name 'file'.",
+          400,
+        );
+      }
+
+      const ext = this.resolveAvatarExtension(file.mimetype);
+      if (!ext) {
+        throw new DomainError(
+          "VALIDATION_ERROR",
+          "Invalid avatar type. Allowed: image/jpeg, image/png, image/webp.",
+          400,
+        );
+      }
+
+      const key = `avatars/${randomUUID()}.${ext}`;
+      await this.storagePort.putObject(key, file.buffer, file.mimetype);
+
+      const profile = await this.changeAvatarUseCase.execute({
+        userId,
+        avatarKey: key,
+      });
+
+      return res.status(200).json(
+        ok(
+          {
+            avatarKey: key,
+            avatarUrl: this.storagePort.getPublicUrl(key),
+            profile,
+          },
+          {
+            message: "Avatar uploaded and changed successfully.",
+          },
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
   @httpGet("/me/qrcode")
   @RoleDecorator(Role.USER, Role.ADMIN)
   async generateMyProfileQrCode(
@@ -247,5 +317,15 @@ export class ProfileController {
     if (!requiredRoles.includes(role)) {
       throw new ForbiddenError("You do not have permission");
     }
+  }
+
+  private resolveAvatarExtension(
+    mimeType?: string,
+  ): "jpg" | "png" | "webp" | null {
+    const normalized = mimeType?.toLowerCase().trim();
+    if (normalized === "image/jpeg" || normalized === "image/jpg") return "jpg";
+    if (normalized === "image/png") return "png";
+    if (normalized === "image/webp") return "webp";
+    return null;
   }
 }
