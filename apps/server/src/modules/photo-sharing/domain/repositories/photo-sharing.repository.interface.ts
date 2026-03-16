@@ -36,4 +36,20 @@ export interface IPhotoSharingRepository {
   listFeed(
     query: PhotoFeedQuery,
   ): Promise<{ items: PhotoFeedProjection[]; total: number }>;
+
+  listAllRelatedPhotos(
+    query: PhotoFeedQuery,
+  ): Promise<{ items: PhotoFeedProjection[]; total: number }>;
+
+  listMyPhotos(
+    query: Omit<PhotoFeedQuery, "username">,
+  ): Promise<{ items: PhotoFeedProjection[]; total: number }>;
+
+  updateOwnPhotoCaption(input: {
+    userId: string;
+    photoId: string;
+    caption: string;
+  }): Promise<boolean>;
+
+  deleteOwnPhoto(input: { userId: string; photoId: string }): Promise<boolean>;
 }

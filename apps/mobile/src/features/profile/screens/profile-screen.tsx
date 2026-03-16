@@ -24,6 +24,7 @@ import { PhotoPost } from "@/src/types/Photo";
 import { authApi } from "@/src/features/auth/api/auth.api";
 import { HttpError } from "@/src/services/http/axios.config";
 import { profileApi } from "@/src/services/api/profile.api";
+import { photosApi } from "@/src/services/api/photos.api";
 import {
   socialApi,
   type SearchUser,
@@ -38,7 +39,7 @@ export default function ProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState("https://i.pravatar.cc/150?img=32");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
-  const [photoPosts] = useState<PhotoPost[]>([]);
+  const [photoPosts, setPhotoPosts] = useState<PhotoPost[]>([]);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -62,11 +63,16 @@ export default function ProfileScreen() {
   const loadProfileData = useCallback(async () => {
     try {
       setIsDataLoading(true);
-      const [me, account, fetchedFriends, fetchedRequests] = await Promise.all([
+      const [me, account, fetchedFriends, fetchedRequests, myPhotos] = await Promise.all([
         profileApi.getMe(),
         authApi.me(),
         socialApi.listFriends(),
         socialApi.listIncomingRequests(),
+        photosApi.listMyPhotos({
+          sort: "desc",
+          page: 1,
+          limit: 120,
+        }),
       ]);
 
       setUsername(me.username);
@@ -74,6 +80,7 @@ export default function ProfileScreen() {
       setAvatarUrl(me.avatarUrl || "https://i.pravatar.cc/150?img=32");
       setFriends(fetchedFriends);
       setFriendRequests(fetchedRequests);
+      setPhotoPosts(myPhotos);
     } catch (error) {
       if (error instanceof HttpError) {
         Alert.alert("Load profile failed", error.message);

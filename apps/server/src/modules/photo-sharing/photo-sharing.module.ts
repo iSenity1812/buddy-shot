@@ -13,6 +13,10 @@ import { SocketPhotoRealtimeAdapter } from "./infrastructure/realtime/socket-pho
 import { PhotoEventDispatcher } from "./infrastructure/events/photo-event-dispatcher";
 import { SendPhotoUseCase } from "./application/use-cases/send-photo.usecase";
 import { GetPhotoFeedUseCase } from "./application/use-cases/get-photo-feed.usecase";
+import { GetAllPhotosUseCase } from "./application/use-cases/get-all-photos.usecase";
+import { GetMyPhotosUseCase } from "./application/use-cases/get-my-photos.usecase";
+import { UpdateMyPhotoCaptionUseCase } from "./application/use-cases/update-my-photo-caption.usecase";
+import { DeleteMyPhotoUseCase } from "./application/use-cases/delete-my-photo.usecase";
 import "./presentation/photo-sharing.controller";
 
 export const photoSharingModule = new ContainerModule((bind) => {
@@ -47,5 +51,23 @@ export const photoSharingModule = new ContainerModule((bind) => {
 
   bind<GetPhotoFeedUseCase>(PHOTO_SHARING_KEY.USE_CASE.GET_FEED)
     .to(GetPhotoFeedUseCase)
+    .inTransientScope();
+
+  bind<GetAllPhotosUseCase>(PHOTO_SHARING_KEY.USE_CASE.GET_ALL_PHOTOS)
+    .to(GetAllPhotosUseCase)
+    .inTransientScope();
+
+  bind<GetMyPhotosUseCase>(PHOTO_SHARING_KEY.USE_CASE.GET_MY_PHOTOS)
+    .to(GetMyPhotosUseCase)
+    .inTransientScope();
+
+  bind<UpdateMyPhotoCaptionUseCase>(
+    PHOTO_SHARING_KEY.USE_CASE.UPDATE_MY_PHOTO_CAPTION,
+  )
+    .to(UpdateMyPhotoCaptionUseCase)
+    .inTransientScope();
+
+  bind<DeleteMyPhotoUseCase>(PHOTO_SHARING_KEY.USE_CASE.DELETE_MY_PHOTO)
+    .to(DeleteMyPhotoUseCase)
     .inTransientScope();
 });

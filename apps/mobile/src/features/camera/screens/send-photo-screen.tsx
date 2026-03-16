@@ -17,54 +17,63 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Friend } from "@/src/types/User";
 import DownloadImageButton from "../components/download-image-button";
 import { HttpError } from "@/src/services/http/axios.config";
-import { socialApi } from "@/src/services/api/social.api";
+import { cameraApi, type CameraFriendOption } from "../api/camera.api";
 
 export default function SendPhotoScreen() {
-  const [friends, setFriends] = useState<Friend[]>([]);
   const params = useLocalSearchParams<{ imageUri?: string }>();
   const image =
     typeof params.imageUri === "string" && params.imageUri.length > 0
       ? params.imageUri
       : "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&h=600&fit=crop";
+  const [friends, setFriends] = useState<CameraFriendOption[]>([]);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(true);
   const [message, setMessage] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [allSelected, setAllSelected] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const isLocked = isSending || isSent;
+  const recipientIds = allSelected
+    ? friends.map((friend) => friend.id)
+    : selectedFriends;
+  const hasRecipients = recipientIds.length > 0;
 
   useEffect(() => {
-    let isMounted = true;
+    let isCancelled = false;
 
-    const loadRecipients = async () => {
+    const loadFriends = async () => {
+      setIsLoadingFriends(true);
+
       try {
-        const data = await socialApi.listFriends();
-        if (isMounted) {
-          setFriends(data);
+        const loadedFriends = await cameraApi.listFriends();
+        if (!isCancelled) {
+          setFriends(loadedFriends);
         }
-      } catch (error) {
-        if (!isMounted) return;
-
-        if (error instanceof HttpError) {
-          Alert.alert("Load recipients failed", error.message);
-        } else {
-          Alert.alert("Load recipients failed", "Please try again.");
+      } catch {
+        if (!isCancelled) {
+          Alert.alert("Unable to load friends", "Please try again in a moment.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingFriends(false);
         }
       }
     };
 
-    void loadRecipients();
+    void loadFriends();
 
     return () => {
-      isMounted = false;
+      isCancelled = true;
     };
   }, []);
 
   const toggleFriend = (id: string) => {
+    setErrorMessage(null);
     setAllSelected(false);
     setSelectedFriends((prev) =>
       prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id],
@@ -72,26 +81,69 @@ export default function SendPhotoScreen() {
   };
 
   const selectAll = () => {
+    setErrorMessage(null);
     setAllSelected(true);
     setSelectedFriends([]);
   };
 
+  const toUserMessage = (error: unknown): string => {
+    if (error instanceof HttpError) {
+      if (error.code === "PHOTO_SHARING_VALIDATION_ERROR") {
+        return "Please check your caption and recipients, then try again.";
+      }
+
+      if (error.code === "PHOTO_SHARING_CONFLICT_ERROR") {
+        return "Some selected recipients are no longer eligible to receive this photo.";
+      }
+
+      return error.message;
+    }
+
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return "Upload failed. Please try again.";
+  };
+
   const handleSend = async () => {
     if (isLocked) return;
+
+    if (!hasRecipients) {
+      setErrorMessage("Select at least one friend to send this memory.");
+      return;
+    }
+
     Keyboard.dismiss();
+    setErrorMessage(null);
     setIsSending(true);
-    // simulate network request
-    await new Promise<void>((resolve) => setTimeout(resolve, 1800));
+
+    try {
+      const upload = await cameraApi.uploadPhotoDirect(image);
+      setUploadedImageUrl(upload.imageUrl);
+
+      await cameraApi.sendPhoto({
+        imageKey: upload.imageKey,
+        caption: message.trim() ? message.trim() : undefined,
+        recipientIds,
+      });
+
+      setIsSent(true);
+      await new Promise<void>((resolve) => setTimeout(resolve, 900));
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        router.replace("/(main)");
+      });
+    } catch (error) {
+      setErrorMessage(toUserMessage(error));
+      setIsSending(false);
+      return;
+    }
+
     setIsSending(false);
-    setIsSent(true);
-    await new Promise<void>((resolve) => setTimeout(resolve, 900));
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 400,
-      useNativeDriver: true,
-    }).start(() => {
-      router.replace("/(main)");
-    });
   };
 
   return (
@@ -116,7 +168,10 @@ export default function SendPhotoScreen() {
                 <Text className="font-semibold text-foreground">
                   New Memory
                 </Text>
-                <DownloadImageButton imageUri={image} />
+                <DownloadImageButton
+                  imageUri={uploadedImageUrl ?? image}
+                  disabled={!uploadedImageUrl}
+                />
               </View>
 
               <ScrollView
@@ -157,6 +212,14 @@ export default function SendPhotoScreen() {
                   <Text className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
                     Send to
                   </Text>
+                  {isLoadingFriends ? (
+                    <View className="w-full py-4 items-center justify-center">
+                      <ActivityIndicator
+                        size="small"
+                        color="hsl(var(--muted-foreground))"
+                      />
+                    </View>
+                  ) : null}
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -164,16 +227,14 @@ export default function SendPhotoScreen() {
                   >
                     <Pressable
                       onPress={selectAll}
-                      className={`w-12 h-12 rounded-full items-center justify-center ${
-                        allSelected ? "bg-primary" : "bg-muted"
-                      }`}
+                      className={`w-12 h-12 rounded-full items-center justify-center ${allSelected ? "bg-primary" : "bg-muted"
+                        }`}
                     >
                       <Text
-                        className={`text-sm font-medium ${
-                          allSelected
+                        className={`text-sm font-medium ${allSelected
                             ? "text-primary-foreground"
                             : "text-muted-foreground"
-                        }`}
+                          }`}
                       >
                         All
                       </Text>
@@ -221,15 +282,31 @@ export default function SendPhotoScreen() {
                     ) : null}
                   </ScrollView>
                 </View>
+
+                {errorMessage ? (
+                  <View className="px-6 mb-3">
+                    <Text className="text-sm text-red-500">{errorMessage}</Text>
+                  </View>
+                ) : null}
+
+                {!uploadedImageUrl ? (
+                  <View className="px-6 mb-3">
+                    <Text className="text-xs text-muted-foreground">
+                      Download will be available after upload succeeds.
+                    </Text>
+                  </View>
+                ) : null}
               </ScrollView>
 
               <View className="px-6 mt-auto">
                 <Pressable
                   onPress={handleSend}
-                  disabled={isLocked}
-                  className={`w-full py-4 rounded-full flex-row items-center justify-center gap-2 ${
-                    isSent ? "bg-green-500" : "bg-primary"
-                  } ${!isLocked ? "active:scale-95" : ""}`}
+                  disabled={isLocked || isLoadingFriends || !hasRecipients}
+                  className={`w-full py-4 rounded-full flex-row items-center justify-center gap-2 ${isSent ? "bg-green-500" : "bg-primary"
+                    } ${!isLocked ? "active:scale-95" : ""}`}
+                  style={{
+                    opacity: isLocked || isLoadingFriends || !hasRecipients ? 0.65 : 1,
+                  }}
                 >
                   {isSending ? (
                     <ActivityIndicator size="small" color="white" />

@@ -14,6 +14,22 @@ export class R2StorageAdapter implements IStoragePort {
   private readonly bucketName: string;
   private readonly publicBaseUrl: string;
 
+  private resolvePublicBaseUrl(): string {
+    const explicitBase = this.publicBaseUrl.trim();
+    if (explicitBase) {
+      return explicitBase.replace(/\/+$/, "");
+    }
+
+    const accountId = envConfig.cloudflare.r2AccountId.trim();
+    const bucketName = this.bucketName.trim();
+
+    if (!accountId || !bucketName) {
+      return "";
+    }
+
+    return `https://${accountId}.r2.cloudflarestorage.com/${bucketName}`;
+  }
+
   constructor() {
     const accountId = envConfig.cloudflare.r2AccountId;
     this.bucketName = envConfig.cloudflare.r2BucketName;
@@ -59,8 +75,13 @@ export class R2StorageAdapter implements IStoragePort {
    * Assumes the bucket has a public custom domain configured.
    */
   getPublicUrl(key: string): string {
-    const normalizedBase = this.publicBaseUrl.replace(/\/+$/, "");
-    const normalizedKey = key.replace(/^\/+/, "");
+    const normalizedBase = this.resolvePublicBaseUrl();
+    const normalizedKey = key.trim().replace(/^\/+/, "");
+
+    if (!normalizedBase) {
+      return normalizedKey;
+    }
+
     return `${normalizedBase}/${normalizedKey}`;
   }
 

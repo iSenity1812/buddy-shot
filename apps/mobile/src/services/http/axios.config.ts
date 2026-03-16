@@ -66,11 +66,15 @@ function resolveApiBaseUrl(): string {
   return "http://localhost:4000/api/v1";
 }
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
 let authAccessToken: string | null = null;
 
 export function setAuthAccessToken(token: string | null): void {
   authAccessToken = token;
+}
+
+export function getAuthAccessToken(): string | null {
+  return authAccessToken;
 }
 
 function resolveMessage(status: number, payload?: ApiErrorPayload): string {
@@ -91,10 +95,15 @@ function resolveMessage(status: number, payload?: ApiErrorPayload): string {
 
 async function request<T>(
   path: string,
-  init: Omit<RequestInit, "body"> & { body?: unknown } = {},
+  init: Omit<RequestInit, "body"> & { body?: unknown; rawBody?: BodyInit } = {},
 ): Promise<T> {
   const headers = new Headers(init.headers ?? {});
-  headers.set("Content-Type", "application/json");
+
+  const hasRawBody = init.rawBody !== undefined;
+  const hasJsonBody = init.body !== undefined && init.body !== null;
+  if (!hasRawBody && hasJsonBody) {
+    headers.set("Content-Type", "application/json");
+  }
 
   if (!headers.has("Authorization") && authAccessToken) {
     headers.set("Authorization", `Bearer ${authAccessToken}`);
@@ -103,10 +112,11 @@ async function request<T>(
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
-    body:
-      init.body === undefined || init.body === null
-        ? undefined
-        : JSON.stringify(init.body),
+    body: hasRawBody
+      ? init.rawBody
+      : hasJsonBody
+        ? JSON.stringify(init.body)
+        : undefined,
   });
 
   const raw = await response.text();
@@ -155,5 +165,12 @@ export const httpClient = {
   },
   delete<T>(path: string, init?: RequestInit): Promise<T> {
     return request<T>(path, { ...init, method: "DELETE" });
+  },
+  postForm<T>(
+    path: string,
+    formData: FormData,
+    init?: RequestInit,
+  ): Promise<T> {
+    return request<T>(path, { ...init, method: "POST", rawBody: formData });
   },
 };

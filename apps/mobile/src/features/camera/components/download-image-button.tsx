@@ -6,6 +6,7 @@ import { Directory, File as ExpoFile, Paths } from "expo-file-system";
 
 interface DownloadImageButtonProps {
   imageUri: string;
+  disabled?: boolean;
 }
 
 const isLocalAssetUri = (uri: string) => /^(file|content):/i.test(uri);
@@ -13,11 +14,12 @@ const isRemoteHttpUri = (uri: string) => /^https?:/i.test(uri);
 
 export default function DownloadImageButton({
   imageUri,
+  disabled = false,
 }: DownloadImageButtonProps) {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleDownload = async () => {
-    if (isSaving) return;
+    if (isSaving || disabled) return;
 
     try {
       setIsSaving(true);
@@ -85,9 +87,9 @@ export default function DownloadImageButton({
   return (
     <Pressable
       onPress={() => void handleDownload()}
-      disabled={isSaving}
+      disabled={isSaving || disabled}
       className="p-2 active:scale-95"
-      style={{ opacity: isSaving ? 0.65 : 1 }}
+      style={{ opacity: isSaving || disabled ? 0.65 : 1 }}
     >
       {isSaving ? (
         <ActivityIndicator size="small" color="hsl(var(--muted-foreground))" />

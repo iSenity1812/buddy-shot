@@ -189,4 +189,201 @@ export class PrismaPhotoSharingRepository implements IPhotoSharingRepository {
       })),
     };
   }
+
+  async listAllRelatedPhotos(query: {
+    userId: string;
+    username?: string;
+    from?: Date;
+    to?: Date;
+    page: number;
+    limit: number;
+    sort: "asc" | "desc";
+  }): Promise<{
+    items: Array<{
+      photoId: string;
+      senderId: string;
+      senderUsername: string;
+      senderAvatarKey: string | null;
+      imageKey: string;
+      caption: string | null;
+      createdAt: Date;
+      deliveredAt: Date | null;
+    }>;
+    total: number;
+  }> {
+    const where: Prisma.PhotoWhereInput = {
+      OR: [
+        { senderId: query.userId },
+        {
+          recipients: {
+            some: {
+              recipientId: query.userId,
+            },
+          },
+        },
+      ],
+      ...(query.username
+        ? {
+            sender: {
+              username: {
+                contains: query.username,
+                mode: "insensitive",
+              },
+            },
+          }
+        : {}),
+      ...(query.from || query.to
+        ? {
+            createdAt: {
+              ...(query.from ? { gte: query.from } : {}),
+              ...(query.to ? { lte: query.to } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [total, records] = await Promise.all([
+      this.prisma.photo.count({ where }),
+      this.prisma.photo.findMany({
+        where,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              avatarKey: true,
+            },
+          },
+          recipients: {
+            where: {
+              recipientId: query.userId,
+            },
+            select: {
+              deliveredAt: true,
+            },
+            take: 1,
+          },
+        },
+        orderBy: {
+          createdAt: query.sort,
+        },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+    ]);
+
+    return {
+      total,
+      items: records.map((item) => ({
+        photoId: item.id,
+        senderId: item.sender.id,
+        senderUsername: item.sender.username,
+        senderAvatarKey: item.sender.avatarKey,
+        imageKey: item.imageKey,
+        caption: item.caption,
+        createdAt: item.createdAt,
+        deliveredAt: item.recipients[0]?.deliveredAt ?? null,
+      })),
+    };
+  }
+
+  async listMyPhotos(query: {
+    userId: string;
+    from?: Date;
+    to?: Date;
+    page: number;
+    limit: number;
+    sort: "asc" | "desc";
+  }): Promise<{
+    items: Array<{
+      photoId: string;
+      senderId: string;
+      senderUsername: string;
+      senderAvatarKey: string | null;
+      imageKey: string;
+      caption: string | null;
+      createdAt: Date;
+      deliveredAt: Date | null;
+    }>;
+    total: number;
+  }> {
+    const where: Prisma.PhotoWhereInput = {
+      senderId: query.userId,
+      ...(query.from || query.to
+        ? {
+            createdAt: {
+              ...(query.from ? { gte: query.from } : {}),
+              ...(query.to ? { lte: query.to } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [total, records] = await Promise.all([
+      this.prisma.photo.count({ where }),
+      this.prisma.photo.findMany({
+        where,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              avatarKey: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: query.sort,
+        },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+    ]);
+
+    return {
+      total,
+      items: records.map((item) => ({
+        photoId: item.id,
+        senderId: item.sender.id,
+        senderUsername: item.sender.username,
+        senderAvatarKey: item.sender.avatarKey,
+        imageKey: item.imageKey,
+        caption: item.caption,
+        createdAt: item.createdAt,
+        deliveredAt: null,
+      })),
+    };
+  }
+
+  async updateOwnPhotoCaption(input: {
+    userId: string;
+    photoId: string;
+    caption: string;
+  }): Promise<boolean> {
+    const updated = await this.prisma.photo.updateMany({
+      where: {
+        id: input.photoId,
+        senderId: input.userId,
+      },
+      data: {
+        caption: input.caption,
+      },
+    });
+
+    return updated.count > 0;
+  }
+
+  async deleteOwnPhoto(input: {
+    userId: string;
+    photoId: string;
+  }): Promise<boolean> {
+    const deleted = await this.prisma.photo.deleteMany({
+      where: {
+        id: input.photoId,
+        senderId: input.userId,
+      },
+    });
+
+    return deleted.count > 0;
+  }
 }

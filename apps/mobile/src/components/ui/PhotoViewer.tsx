@@ -23,6 +23,8 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { PhotoPost } from "@/src/types/Photo";
+import { HttpError } from "@/src/services/http/axios.config";
+import { photosApi } from "@/src/services/api/photos.api";
 import DownloadImageButton from "../../features/camera/components/download-image-button";
 
 interface Props {
@@ -48,6 +50,8 @@ export default function PhotoViewer({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isEditingMessage, setIsEditingMessage] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [isSavingCaption, setIsSavingCaption] = useState(false);
+  const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
   const dragOffset = useSharedValue(0);
   const currentIndexSv = useSharedValue(initialIndex);
@@ -124,42 +128,86 @@ export default function PhotoViewer({
   };
 
   const handleSaveEdit = () => {
+    if (isSavingCaption) {
+      return;
+    }
+
     const nextMessage = draftMessage.trim();
     if (!nextMessage) {
       Alert.alert("Invalid message", "Message cannot be empty.");
       return;
     }
 
-    setViewPosts((prev) =>
-      prev.map((item) =>
-        item.id === post.id ? { ...item, message: nextMessage } : item,
-      ),
-    );
-    onEditMessage?.(post.id, nextMessage);
-    setIsEditingMessage(false);
+    void (async () => {
+      try {
+        setIsSavingCaption(true);
+
+        if (canManagePost) {
+          await photosApi.updateMyPhotoCaption(post.id, nextMessage);
+        }
+
+        setViewPosts((prev) =>
+          prev.map((item) =>
+            item.id === post.id ? { ...item, message: nextMessage } : item,
+          ),
+        );
+        onEditMessage?.(post.id, nextMessage);
+        setIsEditingMessage(false);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          Alert.alert("Edit caption failed", error.message);
+        } else {
+          Alert.alert("Edit caption failed", "Please try again.");
+        }
+      } finally {
+        setIsSavingCaption(false);
+      }
+    })();
   };
 
   const handleDeletePost = () => {
+    if (isDeletingPhoto) {
+      return;
+    }
+
     Alert.alert("Delete post?", "This action cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: () => {
-          setViewPosts((prev) => {
-            const nextPosts = prev.filter((item) => item.id !== post.id);
-            onDeletePost?.(post.id);
+          void (async () => {
+            try {
+              setIsDeletingPhoto(true);
 
-            if (nextPosts.length === 0) {
-              onClose();
-              return nextPosts;
+              if (canManagePost) {
+                await photosApi.deleteMyPhoto(post.id);
+              }
+
+              setViewPosts((prev) => {
+                const nextPosts = prev.filter((item) => item.id !== post.id);
+                onDeletePost?.(post.id);
+
+                if (nextPosts.length === 0) {
+                  onClose();
+                  return nextPosts;
+                }
+
+                const nextIndex = Math.min(currentIndex, nextPosts.length - 1);
+                currentIndexSv.value = nextIndex;
+                setCurrentIndex(nextIndex);
+                return nextPosts;
+              });
+            } catch (error) {
+              if (error instanceof HttpError) {
+                Alert.alert("Delete photo failed", error.message);
+              } else {
+                Alert.alert("Delete photo failed", "Please try again.");
+              }
+            } finally {
+              setIsDeletingPhoto(false);
             }
-
-            const nextIndex = Math.min(currentIndex, nextPosts.length - 1);
-            currentIndexSv.value = nextIndex;
-            setCurrentIndex(nextIndex);
-            return nextPosts;
-          });
+          })();
         },
       },
     ]);
@@ -190,12 +238,14 @@ export default function PhotoViewer({
                 <>
                   <Pressable
                     onPress={handleDeletePost}
+                    disabled={isDeletingPhoto || isSavingCaption}
                     className="p-2 active:scale-95"
                   >
                     <Feather name="trash-2" size={18} color="red" />
                   </Pressable>
                   <Pressable
                     onPress={handleStartEdit}
+                    disabled={isDeletingPhoto || isSavingCaption}
                     className="p-2 active:scale-95"
                   >
                     <Feather
@@ -261,6 +311,7 @@ export default function PhotoViewer({
                         <View className="flex-row justify-end gap-2">
                           <Pressable
                             onPress={() => setIsEditingMessage(false)}
+                            disabled={isSavingCaption}
                             className="rounded-full bg-muted px-5 py-3 active:scale-95"
                           >
                             <Text className="text-xs font-semibold text-foreground">
@@ -269,6 +320,7 @@ export default function PhotoViewer({
                           </Pressable>
                           <Pressable
                             onPress={handleSaveEdit}
+                            disabled={isSavingCaption}
                             className="rounded-full bg-primary px-5 py-3 active:scale-95"
                           >
                             <Text className="text-xs font-semibold text-primary-foreground">
@@ -334,6 +386,7 @@ export default function PhotoViewer({
                             <View className="flex-row justify-end gap-2">
                               <Pressable
                                 onPress={() => setIsEditingMessage(false)}
+                                disabled={isSavingCaption}
                                 className="rounded-full bg-muted px-3 py-1.5 active:scale-95"
                               >
                                 <Text className="text-xs font-semibold text-foreground">
@@ -342,6 +395,7 @@ export default function PhotoViewer({
                               </Pressable>
                               <Pressable
                                 onPress={handleSaveEdit}
+                                disabled={isSavingCaption}
                                 className="rounded-full bg-primary px-3 py-1.5 active:scale-95"
                               >
                                 <Text className="text-xs font-semibold text-primary-foreground">

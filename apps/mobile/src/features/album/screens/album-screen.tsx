@@ -42,13 +42,42 @@ export default function AlbumScreen() {
   const loadAlbumData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [feed, friendList] = await Promise.all([
-        photosApi.listFeed(),
-        socialApi.listFriends(),
-      ]);
+
+      let resolvedFriends: Friend[] = [];
+      try {
+        resolvedFriends = await socialApi.listFriends();
+      } catch {
+        // Fallback to feed-derived sender list below.
+      }
+
+      const selectedFriendName = selectedFriend
+        ? resolvedFriends.find((friend) => friend.id === selectedFriend)?.name
+        : undefined;
+
+      const feed = await photosApi.listFeed({
+        username: selectedFriendName,
+        sort: "desc",
+        page: 1,
+        limit: 50,
+      });
+      console.log("Loaded feed items:", feed.length);
 
       setPosts(feed);
-      setFriends(friendList);
+
+      if (resolvedFriends.length > 0) {
+        setFriends(resolvedFriends);
+      } else if (feed.length > 0) {
+        const fallbackFriends = Array.from(
+          new Map(feed.map((post) => [post.sender.id, post.sender])).values(),
+        );
+        setFriends(fallbackFriends);
+      } else {
+        setFriends([]);
+      }
+
+      if (selectedFriend && !feed.some((post) => post.sender.id === selectedFriend)) {
+        setSelectedFriend(null);
+      }
     } catch (error) {
       if (error instanceof HttpError) {
         Alert.alert("Load memories failed", error.message);
@@ -58,7 +87,7 @@ export default function AlbumScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedFriend]);
 
   useFocusEffect(
     useCallback(() => {

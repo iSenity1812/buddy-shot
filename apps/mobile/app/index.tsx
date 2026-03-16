@@ -1,18 +1,45 @@
-import OnboardingScreen from "@/src/features/public/screens/onboarding-screen";
+import { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
+import { authApi } from "@/src/features/auth/api/auth.api";
 
 export default function App() {
-  // const user = useAuthStore((s) => s.user);
-  // const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // if (!hasSeenOnboarding) {
-  //   return <OnboardingScreen />;
-  // }
+  useEffect(() => {
+    let isMounted = true;
 
-  // if (user) {
-  //   return <Redirect href="/(main)" />;
-  // }
-  // return <Redirect href="/(auth)/login" />;
+    const verifySession = async () => {
+      try {
+        await authApi.me();
+        if (isMounted) {
+          setIsAuthenticated(true);
+        }
+      } catch {
+        if (isMounted) {
+          setIsAuthenticated(false);
+        }
+      } finally {
+        if (isMounted) {
+          setIsAuthChecking(false);
+        }
+      }
+    };
 
-  return <OnboardingScreen />;
+    verifySession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (isAuthChecking) {
+    return null;
+  }
+
+  if (isAuthenticated) {
+    return <Redirect href="/(main)" />;
+  }
+
+  return <Redirect href="/(auth)/login" />;
 }

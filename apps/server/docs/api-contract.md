@@ -706,6 +706,33 @@ relationshipStatus values:
 
 ## 5.5 Photo Sharing
 
+### POST /api/v1/photos/upload-direct
+
+Upload a photo file directly to object storage and return image key/url for `POST /photos/send`.
+
+Auth:
+
+- Protected (USER, ADMIN)
+
+Request:
+
+- `multipart/form-data`
+- file field name: `file`
+
+Rules:
+
+- Allowed mime types: `image/jpeg`, `image/png`, `image/webp`
+- Max file size: 10 MB
+
+Success 200 data:
+
+```json
+{
+  "imageKey": "photos/550e8400-e29b-41d4-a716-446655440000.jpg",
+  "imageUrl": "https://cdn.example.com/photos/550e8400-e29b-41d4-a716-446655440000.jpg"
+}
+```
+
 ### POST /api/v1/photos/send
 
 Create a photo sharing record from sender to selected recipients.
@@ -794,6 +821,121 @@ Success 200 data:
 Success meta:
 
 - Uses pagination metadata via standard envelope `meta.pagination`.
+
+### GET /api/v1/photos/all?username=<query>&from=<iso>&to=<iso>&page=<n>&limit=<n>&sort=<asc|desc>
+
+List all related photos for current user (both sent by current user and received by current user).
+
+Auth:
+
+- Protected (USER, ADMIN)
+
+Query params:
+
+- `username`: sender username query (optional, case-insensitive)
+- `from`: ISO datetime (optional)
+- `to`: ISO datetime (optional)
+- `page`: number (optional, default 1)
+- `limit`: number (optional, default 20, server clamps to 1..50)
+- `sort`: `asc` or `desc` on photo creation time (optional, default `desc`)
+
+Semantics:
+
+- Includes photos where current authenticated user is the sender.
+- Includes photos delivered to current authenticated user.
+
+Success 200 data shape:
+
+- Same as `GET /api/v1/photos/feed` item shape.
+
+Success meta:
+
+- Uses pagination metadata via standard envelope `meta.pagination`.
+
+### GET /api/v1/photos/me?from=<iso>&to=<iso>&page=<n>&limit=<n>&sort=<asc|desc>
+
+List only photos sent by the current authenticated user.
+
+Auth:
+
+- Protected (USER, ADMIN)
+
+Query params:
+
+- `from`: ISO datetime (optional)
+- `to`: ISO datetime (optional)
+- `page`: number (optional, default 1)
+- `limit`: number (optional, default 20, server clamps to 1..50)
+- `sort`: `asc` or `desc` on photo creation time (optional, default `desc`)
+
+Semantics:
+
+- Includes only photos where current authenticated user is the sender.
+- Does not include photos sent by other users, even if delivered to current user.
+
+Success 200 data shape:
+
+- Same as `GET /api/v1/photos/feed` item shape.
+
+Success meta:
+
+- Uses pagination metadata via standard envelope `meta.pagination`.
+
+### PATCH /api/v1/photos/:photoId/caption
+
+Update caption for a photo owned by the current authenticated user.
+
+Auth:
+
+- Protected (USER, ADMIN)
+
+Path params:
+
+- `photoId`: string (required)
+
+Request body:
+
+```json
+{
+  "caption": "Updated caption"
+}
+```
+
+Rules:
+
+- Only the sender (owner) can update caption.
+- `caption` is required and max length is 100.
+
+Success 200 data:
+
+```json
+{
+  "photoId": "photo-uuid",
+  "caption": "Updated caption"
+}
+```
+
+### DELETE /api/v1/photos/:photoId
+
+Delete a photo owned by the current authenticated user.
+
+Auth:
+
+- Protected (USER, ADMIN)
+
+Path params:
+
+- `photoId`: string (required)
+
+Rules:
+
+- Only the sender (owner) can delete the photo.
+- Related delivery records are removed by cascade.
+
+Success 200:
+
+- data is empty/undefined
+- message: Photo deleted successfully.
 
 ### Socket.IO delivery event
 
