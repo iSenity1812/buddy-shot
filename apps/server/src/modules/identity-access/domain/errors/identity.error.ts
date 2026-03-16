@@ -12,6 +12,17 @@ export class EmailValidationError extends DomainError {
   }
 }
 
+export class EmailAlreadyExistsError extends DomainError {
+  constructor(details?: unknown) {
+    super(
+      ErrorCodes.EMAIL_VALIDATION_ERROR,
+      "Email is already in use.",
+      409,
+      details,
+    );
+  }
+}
+
 export class PasswordValidationError extends DomainError {
   constructor(message: string, details?: unknown) {
     super(ErrorCodes.PASSWORD_VALIDATION_ERROR, message, 400, details);

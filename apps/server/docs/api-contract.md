@@ -272,6 +272,64 @@ Success 200:
 - data is empty/undefined
 - message: Logout successful.
 
+### PATCH /api/v1/auth/me/email
+
+Update current authenticated user's email.
+
+Auth:
+
+- Protected (USER, ADMIN)
+
+Request body:
+
+```json
+{
+  "email": "new_email@example.com"
+}
+```
+
+Success 200 data:
+
+```json
+{
+  "id": "uuid",
+  "email": "new_email@example.com",
+  "username": "buddy_user"
+}
+```
+
+Notes:
+
+- Email format is validated.
+- Email uniqueness is enforced.
+
+### PATCH /api/v1/auth/me/password
+
+Change current authenticated user's password.
+
+Auth:
+
+- Protected (USER, ADMIN)
+
+Request body:
+
+```json
+{
+  "currentPassword": "old_password123",
+  "newPassword": "new_password123"
+}
+```
+
+Success 200:
+
+- data is empty/undefined
+- message: Password changed successfully.
+
+Notes:
+
+- `currentPassword` must match the existing password.
+- `newPassword` must satisfy password policy (8..72 characters).
+
 ## 5.3 User Profile
 
 ### GET /api/v1/profiles/me

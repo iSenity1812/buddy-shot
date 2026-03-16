@@ -76,6 +76,16 @@ export class User extends AggregateRoot<UserProps> {
     this.incrementVersion();
   }
 
+  changeEmail(newEmail: string): void {
+    const nextEmail = Email.create(newEmail);
+    if (this.props.email.equals(nextEmail)) {
+      return;
+    }
+
+    (this.props as UserProps).email = nextEmail;
+    this.incrementVersion();
+  }
+
   deactivate(): void {
     if (!this.props.isActive) return;
     (this.props as UserProps).isActive = false;

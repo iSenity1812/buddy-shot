@@ -21,6 +21,9 @@ import { RegisterUseCase } from "./application/uses-cases/register.usecase";
 import { LoginUseCase } from "./application/uses-cases/login.usecase";
 import { RefreshTokenUseCase } from "./application/uses-cases/refresh.usecase";
 import { LogoutUseCase } from "./application/uses-cases/logout.usecase";
+import { GetMeUseCase } from "./application/uses-cases/get-me.usecase";
+import { UpdateEmailUseCase } from "./application/uses-cases/update-email.usecase";
+import { ChangePasswordUseCase } from "./application/uses-cases/change-password.usecase";
 import "./presentation/auth.controller";
 
 export const identityModule = new ContainerModule((bind) => {
@@ -72,5 +75,17 @@ export const identityModule = new ContainerModule((bind) => {
 
   bind<LogoutUseCase>(IDENTITY_KEY.USE_CASE.LOGOUT)
     .to(LogoutUseCase)
+    .inTransientScope();
+
+  bind<GetMeUseCase>(IDENTITY_KEY.USE_CASE.GET_ME)
+    .to(GetMeUseCase)
+    .inTransientScope();
+
+  bind<UpdateEmailUseCase>(IDENTITY_KEY.USE_CASE.UPDATE_EMAIL)
+    .to(UpdateEmailUseCase)
+    .inTransientScope();
+
+  bind<ChangePasswordUseCase>(IDENTITY_KEY.USE_CASE.CHANGE_PASSWORD)
+    .to(ChangePasswordUseCase)
     .inTransientScope();
 });

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { inject } from "inversify";
-import { controller, httpPost } from "inversify-express-utils";
+import { controller, httpGet, httpPatch, httpPost } from "inversify-express-utils";
 import { ok } from "@/shared/http/builder/response.factory";
 import {
   Role as RoleDecorator,
@@ -16,6 +16,9 @@ import { RegisterUseCase } from "../application/uses-cases/register.usecase";
 import { LoginUseCase } from "../application/uses-cases/login.usecase";
 import { RefreshTokenUseCase } from "../application/uses-cases/refresh.usecase";
 import { LogoutUseCase } from "../application/uses-cases/logout.usecase";
+import { GetMeUseCase } from "../application/uses-cases/get-me.usecase";
+import { UpdateEmailUseCase } from "../application/uses-cases/update-email.usecase";
+import { ChangePasswordUseCase } from "../application/uses-cases/change-password.usecase";
 import jwt from "jsonwebtoken";
 import { envConfig } from "@/shared/config/env.config";
 
@@ -33,6 +36,15 @@ export class AuthController {
 
     @inject(IDENTITY_KEY.USE_CASE.LOGOUT)
     private readonly logoutUseCase: LogoutUseCase,
+
+    @inject(IDENTITY_KEY.USE_CASE.GET_ME)
+    private readonly getMeUseCase: GetMeUseCase,
+
+    @inject(IDENTITY_KEY.USE_CASE.UPDATE_EMAIL)
+    private readonly updateEmailUseCase: UpdateEmailUseCase,
+
+    @inject(IDENTITY_KEY.USE_CASE.CHANGE_PASSWORD)
+    private readonly changePasswordUseCase: ChangePasswordUseCase,
   ) {}
 
   @httpPost("/register")
@@ -125,6 +137,93 @@ export class AuthController {
       return res.status(200).json(
         ok(undefined, {
           message: "Logout successful.",
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  @httpGet("/me")
+  @RoleDecorator(Role.USER, Role.ADMIN)
+  async getMe(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> {
+    try {
+      this.hydrateUserFromBearer(req);
+      this.assertRole(req, "getMe");
+      if (!req.user?.id) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      const output = await this.getMeUseCase.execute({
+        userId: req.user.id,
+      });
+
+      return res.status(200).json(
+        ok(output, {
+          message: "Fetched current account successfully.",
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  @httpPatch("/me/email")
+  @RoleDecorator(Role.USER, Role.ADMIN)
+  async updateMyEmail(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> {
+    try {
+      this.hydrateUserFromBearer(req);
+      this.assertRole(req, "updateMyEmail");
+      if (!req.user?.id) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      const output = await this.updateEmailUseCase.execute({
+        userId: req.user.id,
+        email: req.body?.email,
+      });
+
+      return res.status(200).json(
+        ok(output, {
+          message: "Email updated successfully.",
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  @httpPatch("/me/password")
+  @RoleDecorator(Role.USER, Role.ADMIN)
+  async changeMyPassword(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> {
+    try {
+      this.hydrateUserFromBearer(req);
+      this.assertRole(req, "changeMyPassword");
+      if (!req.user?.id) {
+        throw new UnauthorizedError("Authentication required");
+      }
+
+      await this.changePasswordUseCase.execute({
+        userId: req.user.id,
+        currentPassword: req.body?.currentPassword,
+        newPassword: req.body?.newPassword,
+      });
+
+      return res.status(200).json(
+        ok(undefined, {
+          message: "Password changed successfully.",
         }),
       );
     } catch (error) {
