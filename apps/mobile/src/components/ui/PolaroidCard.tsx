@@ -9,8 +9,6 @@ interface Props {
   onTap: (post: PhotoPost) => void;
 }
 
-const rotations = [-1.5, 1, -0.5, 2];
-
 const PolaroidCard = ({ post, index, onTap }: Props) => {
   return (
     <Pressable
@@ -24,14 +22,14 @@ const PolaroidCard = ({ post, index, onTap }: Props) => {
         contentFit="cover"
       />
       <Text
-        className="font-handwritten text-base text-foreground mt-2 px-1 text-center leading-tight"
+        className="font-handwritten text-base text-foreground my-3 px-1 text-center leading-tight"
         numberOfLines={1}
       >
         {post.message}
       </Text>
-      <Text className="text-[10px] text-muted-foreground mt-0.5 px-1 text-center">
+      {/* <Text className="text-[10px] text-muted-foreground mt-0.5 px-1 text-center">
         {getRelativeTime(post.timestamp)}
-      </Text>
+      </Text> */}
     </Pressable>
   );
 };

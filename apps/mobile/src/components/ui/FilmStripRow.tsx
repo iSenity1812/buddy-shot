@@ -14,8 +14,8 @@ const PERF_COUNT = 24;
 const FilmStripRow = ({ friend, posts, onTap }: Props) => {
   return (
     <View className="mb-3">
-      <Text className="font-handwritten text-xl text-foreground px-4 mb-0.5 italic">
-        {friend.name}
+      <Text className="text-foreground font-handwritten px-4 mb-0.5 text-2xl">
+        {friend.name.charAt(0).toUpperCase() + friend.name.slice(1)}
       </Text>
 
       <View className="relative bg-film-strip overflow-hidden py-5">

@@ -59,7 +59,7 @@ export default function MonthYearPicker({
     <DraggableBottomSheetModal
       visible={visible}
       onClose={onClose}
-      maxHeightRatio={0.78}
+      maxHeightRatio={1}
     >
       {/* Year pills */}
       <ScrollView

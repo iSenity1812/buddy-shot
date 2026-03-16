@@ -57,7 +57,10 @@ export default function SendPhotoScreen() {
         }
       } catch {
         if (!isCancelled) {
-          Alert.alert("Unable to load friends", "Please try again in a moment.");
+          Alert.alert(
+            "Unable to load friends",
+            "Please try again in a moment.",
+          );
         }
       } finally {
         if (!isCancelled) {
@@ -166,13 +169,7 @@ export default function SendPhotoScreen() {
                 >
                   <Feather name="x" size={24} color="hsl(var(--foreground))" />
                 </Pressable>
-                <Text className="font-semibold text-foreground">
-                  New Memory
-                </Text>
-                <DownloadImageButton
-                  imageUri={uploadedImageUrl ?? image}
-                  disabled={!uploadedImageUrl}
-                />
+                <DownloadImageButton imageUri={uploadedImageUrl ?? image} />
               </View>
 
               <ScrollView
@@ -228,14 +225,16 @@ export default function SendPhotoScreen() {
                   >
                     <Pressable
                       onPress={selectAll}
-                      className={`w-12 h-12 rounded-full items-center justify-center ${allSelected ? "bg-primary" : "bg-muted"
-                        }`}
+                      className={`w-12 h-12 rounded-full items-center justify-center ${
+                        allSelected ? "bg-primary" : "bg-muted"
+                      }`}
                     >
                       <Text
-                        className={`text-sm font-medium ${allSelected
-                          ? "text-primary-foreground"
-                          : "text-muted-foreground"
-                          }`}
+                        className={`text-sm font-medium ${
+                          allSelected
+                            ? "text-primary-foreground"
+                            : "text-muted-foreground"
+                        }`}
                       >
                         All
                       </Text>
@@ -246,12 +245,14 @@ export default function SendPhotoScreen() {
                         !allSelected && selectedFriends.includes(friend.id);
 
                       const getInitials = (name: string): string => {
-                        return name
-                          .split(" ")
-                          .slice(0, 2)
-                          .map((word) => word[0]?.toUpperCase())
-                          .join("")
-                          .slice(0, 2) || "?";
+                        return (
+                          name
+                            .split(" ")
+                            .slice(0, 2)
+                            .map((word) => word[0]?.toUpperCase())
+                            .join("")
+                            .slice(0, 2) || "?"
+                        );
                       };
 
                       return (
@@ -262,7 +263,9 @@ export default function SendPhotoScreen() {
                         >
                           <View
                             style={
-                              isSelected ? { transform: [{ scale: 1.1 }] } : undefined
+                              isSelected
+                                ? { transform: [{ scale: 1.1 }] }
+                                : undefined
                             }
                           >
                             <UserAvatar
@@ -305,24 +308,18 @@ export default function SendPhotoScreen() {
                     <Text className="text-sm text-red-500">{errorMessage}</Text>
                   </View>
                 ) : null}
-
-                {!uploadedImageUrl ? (
-                  <View className="px-6 mb-3">
-                    <Text className="text-xs text-muted-foreground">
-                      Download will be available after upload succeeds.
-                    </Text>
-                  </View>
-                ) : null}
               </ScrollView>
 
               <View className="px-6 mt-auto">
                 <Pressable
                   onPress={handleSend}
                   disabled={isLocked || isLoadingFriends || !hasRecipients}
-                  className={`w-full py-4 rounded-full flex-row items-center justify-center gap-2 ${isSent ? "bg-green-500" : "bg-primary"
-                    } ${!isLocked ? "active:scale-95" : ""}`}
+                  className={`w-full py-4 rounded-full flex-row items-center justify-center gap-2 ${
+                    isSent ? "bg-green-500" : "bg-primary"
+                  } ${!isLocked ? "active:scale-95" : ""}`}
                   style={{
-                    opacity: isLocked || isLoadingFriends || !hasRecipients ? 0.65 : 1,
+                    opacity:
+                      isLocked || isLoadingFriends || !hasRecipients ? 0.65 : 1,
                   }}
                 >
                   {isSending ? (

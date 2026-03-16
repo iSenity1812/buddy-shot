@@ -1,9 +1,18 @@
-﻿import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Animated, {
   FadeInLeft,
   FadeInRight,
   runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
@@ -12,6 +21,8 @@ import type { PhotoPost } from "../../types/Photo";
 import PhotoViewer from "../ui/PhotoViewer";
 import MonthYearPicker from "../ui/MonthYearPicker";
 import { DAY_HEADERS, MONTH_NAMES } from "@/src/constants/time";
+import { authApi } from "@/src/features/auth/api/auth.api";
+import { HttpError } from "@/src/services/http/axios.config";
 
 interface Props {
   posts: PhotoPost[];
@@ -36,14 +47,137 @@ export default function PhotoCalendar({ posts }: Props) {
   const [month, setMonth] = useState(currentMonth);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [calendarPosts, setCalendarPosts] = useState(posts);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [viewerData, setViewerData] = useState<{
     posts: PhotoPost[];
     index: number;
   } | null>(null);
+  const viewerTranslateX = useSharedValue(0);
+  const viewerOpacity = useSharedValue(1);
+  const isViewerAnimating = useRef(false);
+
+  const changeViewerIndexByDelta = useCallback((delta: number) => {
+    setViewerData((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
+      const nextIndex = Math.max(
+        0,
+        Math.min(prev.index + delta, prev.posts.length - 1),
+      );
+
+      if (nextIndex === prev.index) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        index: nextIndex,
+      };
+    });
+  }, []);
+
+  const finishViewerAnimation = useCallback(() => {
+    isViewerAnimating.current = false;
+  }, []);
+
+  const animateViewerSwipe = useCallback(
+    (delta: number) => {
+      if (!viewerData || isViewerAnimating.current) {
+        return;
+      }
+
+      const nextIndex = Math.max(
+        0,
+        Math.min(viewerData.index + delta, viewerData.posts.length - 1),
+      );
+
+      if (nextIndex === viewerData.index) {
+        return;
+      }
+
+      isViewerAnimating.current = true;
+
+      const exitOffset = delta > 0 ? -48 : 48;
+
+      viewerTranslateX.value = withTiming(
+        exitOffset,
+        { duration: 120 },
+        (finished) => {
+          if (!finished) {
+            runOnJS(finishViewerAnimation)();
+            return;
+          }
+
+          runOnJS(changeViewerIndexByDelta)(delta);
+
+          viewerTranslateX.value = -exitOffset;
+          viewerOpacity.value = 0.85;
+
+          viewerTranslateX.value = withTiming(0, { duration: 170 }, (done) => {
+            if (done) {
+              runOnJS(finishViewerAnimation)();
+            }
+          });
+          viewerOpacity.value = withTiming(1, { duration: 170 });
+        },
+      );
+
+      viewerOpacity.value = withTiming(0.8, { duration: 120 });
+    },
+    [
+      changeViewerIndexByDelta,
+      finishViewerAnimation,
+      viewerData,
+      viewerOpacity,
+      viewerTranslateX,
+    ],
+  );
+
+  const viewerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: viewerTranslateX.value }],
+    opacity: viewerOpacity.value,
+  }));
+
+  const viewerSwipeGesture = Gesture.Pan().onEnd((e) => {
+    if (e.translationX < -50) {
+      runOnJS(animateViewerSwipe)(1);
+      return;
+    }
+
+    if (e.translationX > 50) {
+      runOnJS(animateViewerSwipe)(-1);
+    }
+  });
 
   useEffect(() => {
     setCalendarPosts(posts);
   }, [posts]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCurrentUser = async () => {
+      try {
+        const me = await authApi.me();
+        if (isMounted) {
+          setCurrentUserId(me.id);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        if (error instanceof HttpError) {
+          Alert.alert("Load account failed", error.message);
+        }
+      }
+    };
+
+    void loadCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // null = first render (no animation)
   const navDirection = useRef<"forward" | "backward" | null>(null);
@@ -244,8 +378,27 @@ export default function PhotoCalendar({ posts }: Props) {
       {viewerData && (
         <PhotoViewer
           posts={viewerData.posts}
-          initialIndex={viewerData.index}
-          isOwnPost={() => true}
+          currentIndex={viewerData.index}
+          showThumbnailStrip={viewerData.posts.length > 1}
+          renderInteractiveWrapper={(content) => (
+            <GestureDetector gesture={viewerSwipeGesture}>
+              <Animated.View style={viewerAnimatedStyle}>
+                {content}
+              </Animated.View>
+            </GestureDetector>
+          )}
+          isOwnPost={(post) =>
+            Boolean(currentUserId) && post.sender.id === currentUserId
+          }
+          onIndexChange={(nextIndex) => {
+            setViewerData((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                index: Math.max(0, Math.min(nextIndex, prev.posts.length - 1)),
+              };
+            });
+          }}
           onEditMessage={(postId, nextMessage) => {
             setCalendarPosts((prev) =>
               prev.map((post) =>

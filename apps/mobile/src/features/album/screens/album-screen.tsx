@@ -22,10 +22,12 @@ import { Friend } from "@/src/types/User";
 import { HttpError } from "@/src/services/http/axios.config";
 import { photosApi } from "@/src/services/api/photos.api";
 import { socialApi } from "@/src/services/api/social.api";
+import { authApi } from "@/src/features/auth/api/auth.api";
 import { realtimeSocketClient } from "../../../services/realtime/socket-client";
 
 export default function AlbumScreen() {
   const [posts, setPosts] = useState<PhotoPost[]>([]);
+  const [myPosts, setMyPosts] = useState<PhotoPost[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [layout, setLayout] = useState<"grid" | "film">("grid");
@@ -34,6 +36,11 @@ export default function AlbumScreen() {
     posts: PhotoPost[];
     index: number;
   } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("You");
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string>(
+    "https://ui-avatars.com/api/?name=You&background=0D8ABC&color=fff",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const { panHandlers, animatedStyle } = useMainScreenSwipe({
     mode: "album",
@@ -43,6 +50,20 @@ export default function AlbumScreen() {
   const loadAlbumData = useCallback(async () => {
     try {
       setIsLoading(true);
+
+      let meUserId = currentUserId;
+
+      try {
+        const me = await authApi.me();
+        meUserId = me.id;
+        setCurrentUserId(me.id);
+        setCurrentUserName(me.username || "You");
+        setCurrentUserAvatar(
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(me.username || "You")}&background=0D8ABC&color=fff`,
+        );
+      } catch {
+        // Keep viewer in non-owner mode when user identity is unavailable.
+      }
 
       let resolvedFriends: Friend[] = [];
       try {
@@ -55,15 +76,33 @@ export default function AlbumScreen() {
         ? resolvedFriends.find((friend) => friend.id === selectedFriend)?.name
         : undefined;
 
-      const feed = await photosApi.listFeed({
-        username: selectedFriendName,
-        sort: "desc",
-        page: 1,
-        limit: 50,
-      });
-      console.log("Loaded feed items:", feed.length);
+      const [feed, myFeed] = await Promise.all([
+        photosApi.listFeed({
+          username: selectedFriendName,
+          sort: "desc",
+          page: 1,
+          limit: 50,
+        }),
+        photosApi.listMyPhotos({
+          sort: "desc",
+          page: 1,
+          limit: 50,
+        }),
+      ]);
+      // console.log("Loaded feed items:", feed.length);
 
       setPosts(feed);
+      setMyPosts(myFeed);
+
+      if (myFeed.length > 0) {
+        const selfSender = myFeed[0].sender;
+        if (!meUserId) {
+          meUserId = selfSender.id;
+          setCurrentUserId(selfSender.id);
+        }
+        setCurrentUserName(selfSender.name || "You");
+        setCurrentUserAvatar(selfSender.avatar);
+      }
 
       if (resolvedFriends.length > 0) {
         setFriends(resolvedFriends);
@@ -76,7 +115,10 @@ export default function AlbumScreen() {
         setFriends([]);
       }
 
-      if (selectedFriend && !feed.some((post) => post.sender.id === selectedFriend)) {
+      if (
+        selectedFriend &&
+        !feed.some((post) => post.sender.id === selectedFriend)
+      ) {
         setSelectedFriend(null);
       }
     } catch (error) {
@@ -88,7 +130,7 @@ export default function AlbumScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedFriend]);
+  }, [selectedFriend, currentUserId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -125,20 +167,45 @@ export default function AlbumScreen() {
     [posts, selectedFriend],
   );
 
-  const postsByFriend = useMemo(
-    () =>
-      friends
-        .filter((friend) => {
-          if (!searchQuery) return true;
-          return friend.name.toLowerCase().includes(searchQuery.toLowerCase());
-        })
-        .map((friend) => ({
-          friend,
-          posts: posts.filter((post) => post.sender.id === friend.id),
-        }))
-        .filter((group) => group.posts.length > 0),
-    [friends, posts, searchQuery],
-  );
+  const postsByFriend = useMemo(() => {
+    const allPosts = [...posts, ...myPosts];
+    const uniquePosts = Array.from(
+      new Map(allPosts.map((post) => [post.id, post])).values(),
+    );
+
+    const ownRow: Friend | null = currentUserId
+      ? {
+          id: currentUserId,
+          name: currentUserName,
+          avatar: currentUserAvatar,
+        }
+      : null;
+
+    const friendRows = ownRow
+      ? [ownRow, ...friends.filter((friend) => friend.id !== ownRow.id)]
+      : friends;
+
+    return friendRows
+      .filter((friend) => {
+        if (!searchQuery) return true;
+        return friend.name.toLowerCase().includes(searchQuery.toLowerCase());
+      })
+      .map((friend) => ({
+        friend,
+        posts: uniquePosts.filter((post) => post.sender.id === friend.id),
+      }))
+      .filter(
+        (group) => group.posts.length > 0 || group.friend.id === currentUserId,
+      );
+  }, [
+    friends,
+    posts,
+    myPosts,
+    searchQuery,
+    currentUserId,
+    currentUserName,
+    currentUserAvatar,
+  ]);
 
   const openViewer = (post: PhotoPost, postsContext: PhotoPost[]) => {
     const index = postsContext.findIndex(
@@ -255,7 +322,9 @@ export default function AlbumScreen() {
 
           {isLoading ? (
             <View className="px-4 pt-3">
-              <Text className="text-sm text-muted-foreground">Loading memories...</Text>
+              <Text className="text-sm text-muted-foreground">
+                Loading memories...
+              </Text>
             </View>
           ) : null}
         </ScrollView>
@@ -263,8 +332,60 @@ export default function AlbumScreen() {
         {viewerData ? (
           <PhotoViewer
             posts={viewerData.posts}
-            initialIndex={viewerData.index}
-            readOnly
+            currentIndex={viewerData.index}
+            showThumbnailStrip={false}
+            isOwnPost={(post) =>
+              Boolean(currentUserId) && post.sender.id === currentUserId
+            }
+            onIndexChange={(nextIndex) => {
+              setViewerData((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  index: Math.max(
+                    0,
+                    Math.min(nextIndex, prev.posts.length - 1),
+                  ),
+                };
+              });
+            }}
+            onEditMessage={(postId, nextMessage) => {
+              setPosts((prev) =>
+                prev.map((post) =>
+                  post.id === postId ? { ...post, message: nextMessage } : post,
+                ),
+              );
+
+              setViewerData((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  posts: prev.posts.map((post) =>
+                    post.id === postId
+                      ? { ...post, message: nextMessage }
+                      : post,
+                  ),
+                };
+              });
+            }}
+            onDeletePost={(postId) => {
+              setPosts((prev) => prev.filter((post) => post.id !== postId));
+
+              setViewerData((prev) => {
+                if (!prev) return prev;
+                const nextPosts = prev.posts.filter(
+                  (post) => post.id !== postId,
+                );
+                if (nextPosts.length === 0) {
+                  return null;
+                }
+
+                return {
+                  posts: nextPosts,
+                  index: Math.min(prev.index, nextPosts.length - 1),
+                };
+              });
+            }}
             onClose={() => setViewerData(null)}
           />
         ) : null}
