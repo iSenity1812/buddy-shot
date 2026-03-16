@@ -1,4 +1,29 @@
-import "dotenv/config";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import dotenv from "dotenv";
+
+const envFileCandidates = [
+  resolve(process.cwd(), ".env"),
+  resolve(process.cwd(), "apps/server/.env"),
+  resolve(__dirname, "../../../.env"),
+];
+
+const envFilePath = envFileCandidates.find((candidate) =>
+  existsSync(candidate),
+);
+
+dotenv.config(envFilePath ? { path: envFilePath } : undefined);
+
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`${name} is required`);
+  }
+
+  return value;
+}
+
 export const envConfig = {
   port: Number(process.env.PORT) || 4000,
   host: process.env.HOST || "0.0.0.0",
@@ -7,9 +32,9 @@ export const envConfig = {
   jwtSecret: process.env.JWT_SECRET || "access-secret",
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || "refresh-secret",
   jwtResetSecret: process.env.JWT_RESET_SECRET || "reset-secret",
-  jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
-  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
-  jwtResetExpiresIn: process.env.JWT_RESET_EXPIRES_IN || "15m",
+  jwtAccessExpiresIn: requireEnv("JWT_ACCESS_EXPIRES_IN"),
+  jwtRefreshExpiresIn: requireEnv("JWT_REFRESH_EXPIRES_IN"),
+  jwtResetExpiresIn: requireEnv("JWT_RESET_EXPIRES_IN"),
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
 
   db: {

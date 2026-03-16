@@ -17,11 +17,9 @@ export class JwtTokenService implements ITokenService {
     this.accessSecret = envConfig.jwtSecret;
     this.accessExpiresIn = this.parseDurationToSeconds(
       envConfig.jwtAccessExpiresIn,
-      15 * 60,
     );
     this.refreshTTLSeconds = this.parseDurationToSeconds(
       envConfig.jwtRefreshExpiresIn,
-      7 * 24 * 60 * 60,
     );
 
     if (!this.accessSecret) throw new Error("JWT_ACCESS_SECRET is not set");
@@ -56,14 +54,7 @@ export class JwtTokenService implements ITokenService {
     return this.refreshTTLSeconds;
   }
 
-  private parseDurationToSeconds(
-    raw: string | undefined,
-    fallback: number,
-  ): number {
-    if (!raw) {
-      return fallback;
-    }
-
+  private parseDurationToSeconds(raw: string): number {
     const numeric = Number(raw);
     if (!Number.isNaN(numeric) && Number.isFinite(numeric)) {
       return Math.max(1, Math.floor(numeric));

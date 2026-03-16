@@ -51,5 +51,10 @@ export interface IPhotoSharingRepository {
     caption: string;
   }): Promise<boolean>;
 
+  listAudienceUserIdsForOwnPhoto(input: {
+    userId: string;
+    photoId: string;
+  }): Promise<string[]>;
+
   deleteOwnPhoto(input: { userId: string; photoId: string }): Promise<boolean>;
 }

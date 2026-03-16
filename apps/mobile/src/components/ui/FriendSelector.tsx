@@ -16,26 +16,34 @@ const FriendSelector = ({ friends, selected, onSelect }: Props) => {
       contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
       className="border-t border-border"
     >
-      <View className="flex-row items-center gap-3">
+      {/* 1. Đổi items-center thành items-start để căn đều đỉnh đầu */}
+      <View className="flex-row items-start gap-3">
+
+        {/* Nút ALL */}
         <Pressable
           onPress={() => onSelect(null)}
-          className={`w-12 h-12 items-center justify-center rounded-full ${
-            selected === null
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground"
-          }`}
+          className="items-center gap-1" // Giống hệt cấu trúc của Friend bên dưới
         >
-          <Text
-            className={`text-sm font-medium ${
-              selected === null
-                ? "text-primary-foreground"
-                : "text-muted-foreground"
-            }`}
+          {/* Căn chỉnh lại size w-11 (tương đương size 44 của avatar) để khớp hoàn hảo */}
+          <View
+            className={`w-[44px] h-[44px] items-center justify-center rounded-full ${selected === null
+              ? "bg-primary"
+              : "bg-muted"
+              }`}
           >
-            All
-          </Text>
+            <Text
+              className={`text-xs font-bold ${selected === null ? "text-primary-foreground" : "text-muted-foreground"
+                }`}
+            >
+              All
+            </Text>
+          </View>
+
+          {/* 2. Thêm Text ẩn này để chiếm không gian bằng với tên của friend */}
+          <Text className="text-[10px] opacity-0">Placeholder</Text>
         </Pressable>
 
+        {/* Danh sách FRIENDS */}
         {friends.map((friend) => (
           <Pressable
             key={friend.id}
@@ -50,7 +58,9 @@ const FriendSelector = ({ friends, selected, onSelect }: Props) => {
               }
             >
               <UserAvatar
-                avatarUrl={friend.avatar}
+                // Đừng quên dùng PUBLIC_R2 như bạn đã định nhé
+                avatarUrl={`${process.env.NEXT_PUBLIC_PUBLIC_R2}/${friend.avatar}`}
+                username={friend.name}
                 size={44}
                 ringWidth={selected === friend.id ? 3 : 2}
                 ringClassName={
@@ -60,7 +70,10 @@ const FriendSelector = ({ friends, selected, onSelect }: Props) => {
                 }
               />
             </View>
-            <Text className="text-[10px] font-medium text-foreground">
+            <Text
+              numberOfLines={1}
+              className="text-[10px] font-medium text-foreground w-12 text-center"
+            >
               {friend.name}
             </Text>
           </Pressable>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Animated,
@@ -30,6 +30,7 @@ import {
   type SearchUser,
 } from "@/src/services/api/social.api";
 import type { ImagePickerAsset } from "expo-image-picker";
+import { realtimeSocketClient } from "@/src/services/realtime/socket-client";
 
 export default function ProfileScreen() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -56,8 +57,8 @@ export default function ProfileScreen() {
       emailModalOpen ||
       passwordModalOpen ||
       isAuthActionLoading ||
-        isSocialActionLoading ||
-        isProfileActionLoading,
+      isSocialActionLoading ||
+      isProfileActionLoading,
   });
 
   const loadProfileData = useCallback(async () => {
@@ -97,6 +98,29 @@ export default function ProfileScreen() {
       void loadProfileData();
     }, [loadProfileData]),
   );
+
+  useEffect(() => {
+    const unsubscribeAvatarChanged = realtimeSocketClient.onProfileAvatarChanged(
+      () => {
+        void loadProfileData();
+      },
+    );
+
+    const unsubscribeCaptionUpdated =
+      realtimeSocketClient.onPhotoCaptionUpdated(() => {
+        void loadProfileData();
+      });
+
+    const unsubscribePhotoDeleted = realtimeSocketClient.onPhotoDeleted(() => {
+      void loadProfileData();
+    });
+
+    return () => {
+      unsubscribeAvatarChanged();
+      unsubscribeCaptionUpdated();
+      unsubscribePhotoDeleted();
+    };
+  }, [loadProfileData]);
 
   const friendUsernames = useMemo(
     () => new Set(friends.map((friend) => friend.name.toLowerCase())),

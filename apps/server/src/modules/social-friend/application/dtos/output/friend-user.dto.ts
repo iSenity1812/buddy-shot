@@ -3,4 +3,5 @@ export interface FriendUserDto {
   username: string;
   bio: string | null;
   avatarKey: string | null;
+  avatarUrl: string | null;
 }

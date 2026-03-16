@@ -7,6 +7,7 @@ import { PROFILE_KEY } from "../../di/profile.token";
 import { Profile } from "../../domain/entities/profile";
 import { ProfileDtoMapper } from "../mappers/profile-dto.mapper";
 import { ChangeAvatarInputDto } from "../dtos/input/change-avatar.dto";
+import type { IProfileRealtimePort } from "../ports/profile-realtime.port";
 
 @injectable()
 export class ChangeAvatarUseCase implements IUseCase<
@@ -19,6 +20,9 @@ export class ChangeAvatarUseCase implements IUseCase<
 
     @inject(PROFILE_KEY.PORT.STORAGE)
     private readonly storagePort: IStoragePort,
+
+    @inject(PROFILE_KEY.PORT.REALTIME)
+    private readonly realtime: IProfileRealtimePort,
   ) {}
 
   /**
@@ -35,6 +39,16 @@ export class ChangeAvatarUseCase implements IUseCase<
 
     profile.changeAvatar(input.avatarKey);
     await this.profileRepository.save(profile);
+
+    const avatarUrl = profile.avatarKey
+      ? this.storagePort.getPublicUrl(profile.avatarKey.value)
+      : null;
+
+    await this.realtime.notifyAvatarChanged({
+      userId: profile.userId,
+      username: profile.username.value,
+      avatarUrl,
+    });
 
     return ProfileDtoMapper.toResponse(profile, this.storagePort);
   }

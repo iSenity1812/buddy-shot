@@ -183,7 +183,7 @@ export class ProfileController {
   ): Promise<Response | void> {
     try {
       const userId = this.getAuthorizedUserId(req, "uploadMyAvatarDirectly");
-      const file = (req as Request & { file?: multer.Multer.File }).file;
+      const file = (req as Request & { file?: Express.Multer.File }).file;
 
       if (!file) {
         throw new DomainError(

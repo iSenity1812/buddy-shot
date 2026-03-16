@@ -6,9 +6,11 @@ import type { IEventBus } from "@/shared/application";
 import type { IProfileRepository } from "./domain/repositories/profile.repository.interface";
 import type { IStoragePort } from "./application/ports/storage.port";
 import type { IQrCodePort } from "./application/ports/qrcode.port";
+import type { IProfileRealtimePort } from "./application/ports/profile-realtime.port";
 import { PrismaProfileRepository } from "./infrastructure/repositories/prisma-profile.repository";
 import { R2StorageAdapter } from "./infrastructure/persistence/r2-storage.adapter";
 import { QrCodeAdapter } from "./infrastructure/persistence/qrcode.adapter";
+import { SocketProfileRealtimeAdapter } from "./infrastructure/realtime/socket-profile-realtime.adapter";
 import { GetProfileUseCase } from "./application/use-cases/get-profile.usecase";
 import { UpdateProfileUseCase } from "./application/use-cases/update-profile.usecase";
 import { ChangeAvatarUseCase } from "./application/use-cases/change-avatar.usecase";
@@ -23,6 +25,10 @@ export const profileModule = new ContainerModule((bind) => {
 
   bind<IQrCodePort>(PROFILE_KEY.PORT.QR_CODE)
     .to(QrCodeAdapter)
+    .inSingletonScope();
+
+  bind<IProfileRealtimePort>(PROFILE_KEY.PORT.REALTIME)
+    .to(SocketProfileRealtimeAdapter)
     .inSingletonScope();
 
   bind<IProfileRepository>(PROFILE_KEY.REPOSITORY)

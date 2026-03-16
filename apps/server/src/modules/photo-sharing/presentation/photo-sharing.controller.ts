@@ -69,7 +69,7 @@ export class PhotoSharingController {
   ): Promise<Response | void> {
     try {
       this.getAuthorizedUserId(req, "uploadPhotoDirectly");
-      const file = (req as Request & { file?: multer.Multer.File }).file;
+      const file = (req as Request & { file?: Express.Multer.File }).file;
 
       if (!file) {
         throw new DomainError(

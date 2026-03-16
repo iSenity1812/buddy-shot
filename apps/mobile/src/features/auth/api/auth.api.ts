@@ -2,6 +2,7 @@ import {
   httpClient,
   setAuthAccessToken,
 } from "@/src/services/http/axios.config";
+import { realtimeSocketClient } from "@/src/services/realtime/socket-client";
 import { AUTH_ENDPOINTS } from "../keys/auth.keys";
 import type {
   AuthSession,
@@ -45,6 +46,7 @@ function normalizeDevicePlatform(platform?: DevicePlatform): DevicePlatform {
 
 function applySession(session: AuthSession): AuthSession {
   setAuthAccessToken(session.accessToken);
+  realtimeSocketClient.connectWithAccessToken(session.accessToken);
   return session;
 }
 
@@ -94,6 +96,7 @@ export const authApi = {
       payload,
     );
     setAuthAccessToken(null);
+    realtimeSocketClient.disconnect();
   },
 
   me(): Promise<AccountUser> {

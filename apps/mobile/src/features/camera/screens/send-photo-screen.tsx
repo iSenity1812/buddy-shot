@@ -18,6 +18,7 @@ import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import DownloadImageButton from "../components/download-image-button";
+import UserAvatar from "@/src/components/ui/UserAvatar";
 import { HttpError } from "@/src/services/http/axios.config";
 import { cameraApi, type CameraFriendOption } from "../api/camera.api";
 
@@ -232,8 +233,8 @@ export default function SendPhotoScreen() {
                     >
                       <Text
                         className={`text-sm font-medium ${allSelected
-                            ? "text-primary-foreground"
-                            : "text-muted-foreground"
+                          ? "text-primary-foreground"
+                          : "text-muted-foreground"
                           }`}
                       >
                         All
@@ -244,22 +245,38 @@ export default function SendPhotoScreen() {
                       const isSelected =
                         !allSelected && selectedFriends.includes(friend.id);
 
+                      const getInitials = (name: string): string => {
+                        return name
+                          .split(" ")
+                          .slice(0, 2)
+                          .map((word) => word[0]?.toUpperCase())
+                          .join("")
+                          .slice(0, 2) || "?";
+                      };
+
                       return (
                         <Pressable
                           key={friend.id}
                           onPress={() => toggleFriend(friend.id)}
                           className="relative"
                         >
-                          <Image
-                            source={{ uri: friend.avatar }}
-                            style={{ width: 44, height: 44, borderRadius: 999 }}
-                            contentFit="cover"
-                            className={
-                              isSelected
-                                ? "border-2 border-primary"
-                                : "border-2 border-friend-ring opacity-60"
+                          <View
+                            style={
+                              isSelected ? { transform: [{ scale: 1.1 }] } : undefined
                             }
-                          />
+                          >
+                            <UserAvatar
+                              avatarUrl={friend.avatar}
+                              initials={getInitials(friend.name)}
+                              size={44}
+                              ringWidth={2}
+                              ringClassName={
+                                isSelected
+                                  ? "border-primary"
+                                  : "border-friend-ring"
+                              }
+                            />
+                          </View>
                           {isSelected ? (
                             <View className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-primary rounded-full items-center justify-center">
                               <Feather

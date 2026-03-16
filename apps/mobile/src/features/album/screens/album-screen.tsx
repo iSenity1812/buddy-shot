@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Animated,
@@ -22,6 +22,7 @@ import { Friend } from "@/src/types/User";
 import { HttpError } from "@/src/services/http/axios.config";
 import { photosApi } from "@/src/services/api/photos.api";
 import { socialApi } from "@/src/services/api/social.api";
+import { realtimeSocketClient } from "../../../services/realtime/socket-client";
 
 export default function AlbumScreen() {
   const [posts, setPosts] = useState<PhotoPost[]>([]);
@@ -94,6 +95,27 @@ export default function AlbumScreen() {
       void loadAlbumData();
     }, [loadAlbumData]),
   );
+
+  useEffect(() => {
+    const unsubscribeRecipient = realtimeSocketClient.onPhotoRecipient(() => {
+      void loadAlbumData();
+    });
+
+    const unsubscribeCaptionUpdated =
+      realtimeSocketClient.onPhotoCaptionUpdated(() => {
+        void loadAlbumData();
+      });
+
+    const unsubscribePhotoDeleted = realtimeSocketClient.onPhotoDeleted(() => {
+      void loadAlbumData();
+    });
+
+    return () => {
+      unsubscribeRecipient();
+      unsubscribeCaptionUpdated();
+      unsubscribePhotoDeleted();
+    };
+  }, [loadAlbumData]);
 
   const filteredPosts = useMemo(
     () =>

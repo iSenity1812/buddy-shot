@@ -16,6 +16,7 @@ export interface PendingFriendRequestDto {
     username: string;
     bio: string | null;
     avatarKey: string | null;
+    avatarUrl: string | null;
   };
   createdAt: string;
   updatedAt: string;

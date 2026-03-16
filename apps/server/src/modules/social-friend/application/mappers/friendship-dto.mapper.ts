@@ -3,6 +3,7 @@ import type {
   PendingFriendRequestProjection,
   SearchUserProjection,
 } from "../../domain/repositories/friendship.repository.interface";
+import { envConfig } from "@/shared/config/env.config";
 import type { Friendship } from "../../domain/entities/friendship";
 import type {
   FriendRequestDto,
@@ -10,6 +11,23 @@ import type {
 } from "../dtos/output/friend-request.dto";
 import type { FriendUserDto } from "../dtos/output/friend-user.dto";
 import type { SearchUserDto } from "../dtos/output/search-user.dto";
+
+function resolveAvatarUrl(avatarKey: string | null): string | null {
+  if (!avatarKey) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(avatarKey)) {
+    return avatarKey;
+  }
+
+  const base = envConfig.cloudflare.r2PublicUrlBase.trim();
+  if (!base) {
+    return null;
+  }
+
+  return `${base.replace(/\/+$/, "")}/${avatarKey.replace(/^\/+/, "")}`;
+}
 
 export class FriendshipDtoMapper {
   static toFriendRequestDto(friendship: Friendship): FriendRequestDto {
@@ -35,6 +53,7 @@ export class FriendshipDtoMapper {
         username: input.counterpart.username,
         bio: input.counterpart.bio,
         avatarKey: input.counterpart.avatarKey,
+        avatarUrl: resolveAvatarUrl(input.counterpart.avatarKey),
       },
       createdAt: input.friendship.createdAt.toISOString(),
       updatedAt: input.friendship.updatedAt.toISOString(),
@@ -47,6 +66,7 @@ export class FriendshipDtoMapper {
       username: input.username,
       bio: input.bio,
       avatarKey: input.avatarKey,
+      avatarUrl: resolveAvatarUrl(input.avatarKey),
     };
   }
 
@@ -56,6 +76,7 @@ export class FriendshipDtoMapper {
       username: input.username,
       bio: input.bio,
       avatarKey: input.avatarKey,
+      avatarUrl: resolveAvatarUrl(input.avatarKey),
       relationshipStatus: input.relationshipStatus,
     };
   }

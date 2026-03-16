@@ -56,15 +56,19 @@ export default function FriendRequestList({
                 entering={
                   isExtra
                     ? FadeInDown.duration(280).delay(
-                        (index - INITIAL_COUNT) * 60,
-                      )
+                      (index - INITIAL_COUNT) * 60,
+                    )
                     : undefined
                 }
                 exiting={isExtra ? FadeOutUp.duration(200) : undefined}
               >
                 <View className="flex-row items-center bg-card rounded-xl p-3">
                   <View className="flex-row items-center gap-3 flex-1">
-                    <UserAvatar avatarUrl={request.sender.avatar} size={44} />
+                    <UserAvatar
+                      avatarUrl={request.sender.avatar}
+                      username={request.sender.name}
+                      size={44}
+                    />
                     <View className="flex-1">
                       <Text className="font-semibold text-md text-foreground">
                         {request.sender.name}

@@ -5,14 +5,19 @@ import { PHOTO_SHARING_KEY } from "../../di/photo-sharing.token";
 import type { IPhotoSharingRepository } from "../../domain/repositories/photo-sharing.repository.interface";
 import { PhotoSharingValidationError } from "../../domain/errors/photo-sharing.error";
 import type { UpdatePhotoCaptionDto } from "../dtos/input/update-photo-caption.dto";
+import type { IPhotoRealtimePort } from "../ports/photo-realtime.port";
 
 @injectable()
-export class UpdateMyPhotoCaptionUseCase
-  implements IUseCase<UpdatePhotoCaptionDto, { photoId: string; caption: string }>
-{
+export class UpdateMyPhotoCaptionUseCase implements IUseCase<
+  UpdatePhotoCaptionDto,
+  { photoId: string; caption: string }
+> {
   constructor(
     @inject(PHOTO_SHARING_KEY.REPOSITORY)
     private readonly repository: IPhotoSharingRepository,
+
+    @inject(PHOTO_SHARING_KEY.PORT.REALTIME)
+    private readonly realtime: IPhotoRealtimePort,
   ) {}
 
   async execute(
@@ -47,8 +52,23 @@ export class UpdateMyPhotoCaptionUseCase
     });
 
     if (!updated) {
-      throw new ForbiddenError("You can only edit captions of your own photos.");
+      throw new ForbiddenError(
+        "You can only edit captions of your own photos.",
+      );
     }
+
+    const audienceUserIds =
+      await this.repository.listAudienceUserIdsForOwnPhoto({
+        userId,
+        photoId,
+      });
+
+    await this.realtime.notifyPhotoCaptionUpdated({
+      photoId,
+      caption,
+      actorUserId: userId,
+      audienceUserIds,
+    });
 
     return {
       photoId,

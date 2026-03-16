@@ -77,7 +77,12 @@ export default function FriendsList({
             >
               <View className="flex-row items-center bg-card rounded-xl p-3">
                 <View className="flex-row items-center gap-3 flex-1">
-                  <UserAvatar avatarUrl={friend.avatar} size={avatarSize} />
+
+                  <UserAvatar
+                    avatarUrl={friend.avatar}
+                    username={friend.name}
+                    size={avatarSize}
+                  />
                   <Text className="font-semibold text-md text-foreground">
                     {friend.name}
                   </Text>

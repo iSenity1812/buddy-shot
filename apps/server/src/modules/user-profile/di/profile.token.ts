@@ -10,5 +10,6 @@ export const PROFILE_KEY = {
   PORT: {
     STORAGE: Symbol("StoragePort"),
     QR_CODE: Symbol("QrCodePort"),
+    REALTIME: Symbol("ProfileRealtimePort"),
   },
 };

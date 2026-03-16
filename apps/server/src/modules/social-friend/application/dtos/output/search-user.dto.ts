@@ -5,5 +5,6 @@ export interface SearchUserDto {
   username: string;
   bio: string | null;
   avatarKey: string | null;
+  avatarUrl: string | null;
   relationshipStatus: SearchRelationshipStatus;
 }

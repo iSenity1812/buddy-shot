@@ -1,6 +1,8 @@
 import type { Server as HttpServer } from "http";
 import { Server as SocketIOServer, type Socket } from "socket.io";
 import { envConfig } from "@/shared/config/env.config";
+import jwt, { type JwtPayload } from "jsonwebtoken";
+import { SOCKET_EVENT, type SocketReadyPayload } from "./socket-events";
 
 class SocketGateway {
   private io?: SocketIOServer;
@@ -17,14 +19,27 @@ class SocketGateway {
       },
     });
 
+    this.io.use((socket, next) => {
+      const authResult = this.verifySocketAuth(socket);
+      if (!authResult.ok) {
+        next(new Error(authResult.reason));
+        return;
+      }
+
+      socket.data.userId = authResult.userId;
+      next();
+    });
+
     this.io.on("connection", (socket) => {
-      const userId = this.extractUserId(socket);
+      const userId = this.getAuthenticatedUserId(socket);
       if (!userId) {
+        socket.disconnect(true);
         return;
       }
 
       socket.join(this.getUserRoom(userId));
-      socket.emit("socket:ready", { userId });
+      const payload: SocketReadyPayload = { userId };
+      socket.emit(SOCKET_EVENT.READY, payload);
     });
   }
 
@@ -40,18 +55,52 @@ class SocketGateway {
     return `user:${userId}`;
   }
 
-  private extractUserId(socket: Socket): string | null {
-    const fromAuth = socket.handshake.auth?.userId;
-    if (typeof fromAuth === "string" && fromAuth.trim()) {
-      return fromAuth.trim();
-    }
-
-    const fromQuery = socket.handshake.query.userId;
-    if (typeof fromQuery === "string" && fromQuery.trim()) {
-      return fromQuery.trim();
+  private getAuthenticatedUserId(socket: Socket): string | null {
+    const userId = socket.data.userId;
+    if (typeof userId === "string" && userId.trim()) {
+      return userId.trim();
     }
 
     return null;
+  }
+
+  private verifySocketAuth(
+    socket: Socket,
+  ): { ok: true; userId: string } | { ok: false; reason: string } {
+    const authToken = socket.handshake.auth?.token;
+    if (typeof authToken !== "string" || !authToken.trim()) {
+      return { ok: false, reason: "Missing access token" };
+    }
+
+    const token = authToken.startsWith("Bearer ")
+      ? authToken.slice(7).trim()
+      : authToken.trim();
+
+    if (!token) {
+      return { ok: false, reason: "Missing access token" };
+    }
+
+    try {
+      const decoded = jwt.verify(token, envConfig.jwtSecret) as JwtPayload;
+      const tokenSub =
+        typeof decoded.sub === "string" ? decoded.sub.trim() : "";
+      if (!tokenSub) {
+        return { ok: false, reason: "Invalid token subject" };
+      }
+
+      const claimedUserId = socket.handshake.auth?.userId;
+      if (
+        typeof claimedUserId === "string" &&
+        claimedUserId.trim() &&
+        claimedUserId.trim() !== tokenSub
+      ) {
+        return { ok: false, reason: "Auth subject mismatch" };
+      }
+
+      return { ok: true, userId: tokenSub };
+    } catch {
+      return { ok: false, reason: "Invalid access token" };
+    }
   }
 }
 

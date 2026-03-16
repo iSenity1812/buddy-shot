@@ -99,8 +99,7 @@ export class PrismaPhotoSharingRepository implements IPhotoSharingRepository {
     }
 
     await this.eventBus.publishAll(events);
-
-    void this.eventDispatcher.dispatch(events).catch(() => undefined);
+    await this.eventDispatcher.dispatch(events);
   }
 
   async listFeed(query: {
@@ -371,6 +370,37 @@ export class PrismaPhotoSharingRepository implements IPhotoSharingRepository {
     });
 
     return updated.count > 0;
+  }
+
+  async listAudienceUserIdsForOwnPhoto(input: {
+    userId: string;
+    photoId: string;
+  }): Promise<string[]> {
+    const photo = await this.prisma.photo.findFirst({
+      where: {
+        id: input.photoId,
+        senderId: input.userId,
+      },
+      select: {
+        senderId: true,
+        recipients: {
+          select: {
+            recipientId: true,
+          },
+        },
+      },
+    });
+
+    if (!photo) {
+      return [];
+    }
+
+    return Array.from(
+      new Set([
+        photo.senderId,
+        ...photo.recipients.map((recipient) => recipient.recipientId),
+      ]),
+    );
   }
 
   async deleteOwnPhoto(input: {

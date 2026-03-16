@@ -8,6 +8,7 @@ import { CAMERA_ENDPOINTS } from "../keys/camera.keys";
 interface FriendDto {
   userId: string;
   username: string;
+  avatarUrl: string | null;
   avatarKey: string | null;
 }
 
@@ -48,17 +49,17 @@ const cdnBaseUrl = process.env.EXPO_PUBLIC_R2_PUBLIC_URL_BASE?.replace(
   "",
 );
 
-function resolveAvatarUrl(avatarKey: string | null, username: string): string {
-  if (!avatarKey) {
+function resolveAvatarUrl(avatarUrl: string | null, username: string): string {
+  if (!avatarUrl) {
     return `https://api.dicebear.com/9.x/initials/png?seed=${encodeURIComponent(username)}`;
   }
 
-  if (/^https?:/i.test(avatarKey)) {
-    return avatarKey;
+  if (/^https?:/i.test(avatarUrl)) {
+    return avatarUrl;
   }
 
   if (cdnBaseUrl) {
-    const normalizedKey = avatarKey.replace(/^\/+/, "");
+    const normalizedKey = avatarUrl.replace(/^\/+/, "");
     return `${cdnBaseUrl}/${normalizedKey}`;
   }
 
@@ -86,11 +87,14 @@ function inferFileNameFromUri(uri: string): string {
   }
 
   const mime = inferMimeTypeFromUri(uri);
-  const extension = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+  const extension =
+    mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
   return `photo-${Date.now()}.${extension}`;
 }
 
-async function uploadPhotoDirect(imageUri: string): Promise<UploadPhotoResponse> {
+async function uploadPhotoDirect(
+  imageUri: string,
+): Promise<UploadPhotoResponse> {
   const token = getAuthAccessToken();
   const formData = new FormData();
 
@@ -105,11 +109,14 @@ async function uploadPhotoDirect(imageUri: string): Promise<UploadPhotoResponse>
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${CAMERA_ENDPOINTS.uploadPhotoDirect}`, {
-    method: "POST",
-    headers,
-    body: formData,
-  });
+  const response = await fetch(
+    `${API_BASE_URL}${CAMERA_ENDPOINTS.uploadPhotoDirect}`,
+    {
+      method: "POST",
+      headers,
+      body: formData,
+    },
+  );
 
   const raw = await response.text();
   let payload:
@@ -141,12 +148,14 @@ async function uploadPhotoDirect(imageUri: string): Promise<UploadPhotoResponse>
 
 export const cameraApi = {
   async listFriends(): Promise<CameraFriendOption[]> {
-    const items = await httpClient.get<FriendDto[]>(CAMERA_ENDPOINTS.listFriends);
+    const items = await httpClient.get<FriendDto[]>(
+      CAMERA_ENDPOINTS.listFriends,
+    );
 
     return items.map((item) => ({
       id: item.userId,
       name: item.username,
-      avatar: resolveAvatarUrl(item.avatarKey, item.username),
+      avatar: resolveAvatarUrl(item.avatarUrl, item.username),
     }));
   },
 
