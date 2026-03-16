@@ -152,10 +152,16 @@ export default function AlbumScreen() {
       void loadAlbumData();
     });
 
+    const unsubscribeReactionUpdated =
+      realtimeSocketClient.onPhotoReactionUpdated(() => {
+        void loadAlbumData();
+      });
+
     return () => {
       unsubscribeRecipient();
       unsubscribeCaptionUpdated();
       unsubscribePhotoDeleted();
+      unsubscribeReactionUpdated();
     };
   }, [loadAlbumData]);
 

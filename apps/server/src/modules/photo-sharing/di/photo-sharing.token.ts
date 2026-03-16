@@ -6,6 +6,8 @@ export const PHOTO_SHARING_KEY = {
     GET_MY_PHOTOS: Symbol("GetMyPhotosUseCase"),
     UPDATE_MY_PHOTO_CAPTION: Symbol("UpdateMyPhotoCaptionUseCase"),
     DELETE_MY_PHOTO: Symbol("DeleteMyPhotoUseCase"),
+    REACT_TO_PHOTO: Symbol("ReactToPhotoUseCase"),
+    REMOVE_REACTION: Symbol("RemoveReactionUseCase"),
   },
   REPOSITORY: Symbol("PhotoSharingRepository"),
   PORT: {

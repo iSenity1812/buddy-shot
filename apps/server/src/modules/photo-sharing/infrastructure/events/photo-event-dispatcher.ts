@@ -6,6 +6,9 @@ import type { IPhotoRealtimePort } from "../../application/ports/photo-realtime.
 import type { IMediaStoragePort } from "../../application/ports/media-storage.port";
 import { PhotoSentEvent } from "../../domain/events/photo-sent.event";
 import { PhotoRecipientEvent } from "../../domain/events/photo-recipient.event";
+import { ReactionAddedEvent } from "../../domain/events/reaction-added.event";
+import { ReactionChangedEvent } from "../../domain/events/reaction-changed.event";
+import { ReactionRemovedEvent } from "../../domain/events/reaction-removed.event";
 
 @injectable()
 export class PhotoEventDispatcher implements IPhotoDomainEventDispatcherPort {
@@ -37,6 +40,43 @@ export class PhotoEventDispatcher implements IPhotoDomainEventDispatcherPort {
         imageUrl: this.mediaStorage.getPublicUrl(event.payload.imageKey),
         caption: event.payload.caption,
         occurredAt: event.occurredAt.toISOString(),
+      });
+      return;
+    }
+
+    if (event instanceof ReactionAddedEvent) {
+      await this.realtime.notifyPhotoReactionUpdated({
+        photoId: event.payload.photoId,
+        photoRecipientId: event.payload.photoRecipientId,
+        userId: event.payload.userId,
+        emoji: event.payload.emoji,
+        action: "added",
+        audienceUserIds: event.payload.audienceUserIds,
+      });
+      return;
+    }
+
+    if (event instanceof ReactionChangedEvent) {
+      await this.realtime.notifyPhotoReactionUpdated({
+        photoId: event.payload.photoId,
+        photoRecipientId: event.payload.photoRecipientId,
+        userId: event.payload.userId,
+        previousEmoji: event.payload.previousEmoji,
+        emoji: event.payload.emoji,
+        action: "changed",
+        audienceUserIds: event.payload.audienceUserIds,
+      });
+      return;
+    }
+
+    if (event instanceof ReactionRemovedEvent) {
+      await this.realtime.notifyPhotoReactionUpdated({
+        photoId: event.payload.photoId,
+        photoRecipientId: event.payload.photoRecipientId,
+        userId: event.payload.userId,
+        emoji: event.payload.emoji,
+        action: "removed",
+        audienceUserIds: event.payload.audienceUserIds,
       });
     }
   }

@@ -29,6 +29,8 @@ import { GetAllPhotosUseCase } from "../application/use-cases/get-all-photos.use
 import { GetMyPhotosUseCase } from "../application/use-cases/get-my-photos.usecase";
 import { UpdateMyPhotoCaptionUseCase } from "../application/use-cases/update-my-photo-caption.usecase";
 import { DeleteMyPhotoUseCase } from "../application/use-cases/delete-my-photo.usecase";
+import { ReactToPhotoUseCase } from "../application/use-cases/react-to-photo.usecase";
+import { RemoveReactionUseCase } from "../application/use-cases/remove-reaction.usecase";
 
 const PHOTO_UPLOAD_MIDDLEWARE = multer({
   storage: multer.memoryStorage(),
@@ -55,6 +57,12 @@ export class PhotoSharingController {
 
     @inject(PHOTO_SHARING_KEY.USE_CASE.DELETE_MY_PHOTO)
     private readonly deleteMyPhotoUseCase: DeleteMyPhotoUseCase,
+
+    @inject(PHOTO_SHARING_KEY.USE_CASE.REACT_TO_PHOTO)
+    private readonly reactToPhotoUseCase: ReactToPhotoUseCase,
+
+    @inject(PHOTO_SHARING_KEY.USE_CASE.REMOVE_REACTION)
+    private readonly removeReactionUseCase: RemoveReactionUseCase,
 
     @inject(PROFILE_KEY.PORT.STORAGE)
     private readonly storagePort: IStoragePort,
@@ -282,6 +290,58 @@ export class PhotoSharingController {
       return res.status(200).json(
         ok(undefined, {
           message: "Photo deleted successfully.",
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  @httpPatch("/recipients/:photoRecipientId/reaction")
+  @RoleDecorator(Role.USER, Role.ADMIN)
+  async reactToPhoto(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> {
+    try {
+      const userId = this.getAuthorizedUserId(req, "reactToPhoto");
+      const result = await this.reactToPhotoUseCase.execute({
+        userId,
+        photoRecipientId: String(req.params.photoRecipientId ?? ""),
+        emoji: String(req.body?.emoji ?? ""),
+      });
+
+      return res.status(200).json(
+        ok(result, {
+          message: "Reaction updated successfully.",
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  @httpDelete("/recipients/:photoRecipientId/reaction")
+  @RoleDecorator(Role.USER, Role.ADMIN)
+  async removeReaction(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> {
+    try {
+      const userId = this.getAuthorizedUserId(req, "removeReaction");
+      const result = await this.removeReactionUseCase.execute({
+        userId,
+        photoRecipientId: String(req.params.photoRecipientId ?? ""),
+      });
+
+      return res.status(200).json(
+        ok(result, {
+          message:
+            result.action === "removed"
+              ? "Reaction removed successfully."
+              : "No existing reaction found.",
         }),
       );
     } catch (error) {

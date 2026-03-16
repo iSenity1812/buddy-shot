@@ -9,10 +9,16 @@ interface PhotoFeedSenderDto {
 
 interface PhotoFeedItemDto {
   photoId: string;
+  photoRecipientId: string | null;
   sender: PhotoFeedSenderDto;
   imageKey: string;
   imageUrl: string;
   caption: string | null;
+  myReaction: string | null;
+  reactionSummary: {
+    emoji: string;
+    count: number;
+  }[];
   createdAt: string;
   deliveredAt: string;
 }
@@ -22,6 +28,8 @@ const PHOTOS_ENDPOINTS = {
   me: "/photos/me",
   captionByPhotoId: (photoId: string) => `/photos/${photoId}/caption`,
   byPhotoId: (photoId: string) => `/photos/${photoId}`,
+  reactionByPhotoRecipientId: (photoRecipientId: string) =>
+    `/photos/recipients/${photoRecipientId}/reaction`,
 } as const;
 
 const r2PublicBaseUrl = process.env.EXPO_PUBLIC_R2_PUBLIC_URL_BASE?.replace(
@@ -50,13 +58,41 @@ function fallbackAvatar(username: string): string {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=0D8ABC&color=fff`;
 }
 
+function extractAvatarKey(value: string): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const parsed = new URL(value);
+      const path = parsed.pathname.replace(/^\/+/, "");
+      return path || null;
+    } catch {
+      return null;
+    }
+  }
+
+  return value.replace(/^\/+/, "") || null;
+}
+
 function resolveAvatar(username: string, avatarKey?: string | null): string {
+  const normalizedKey = avatarKey ? extractAvatarKey(avatarKey) : null;
+
+  if (normalizedKey && r2PublicBaseUrl && /^avatars\//i.test(normalizedKey)) {
+    return normalizeHostForDevice(`${r2PublicBaseUrl}/${normalizedKey}`);
+  }
+
   if (avatarKey && /^https?:\/\//i.test(avatarKey)) {
     return normalizeHostForDevice(avatarKey);
   }
 
-  if (avatarKey && r2PublicBaseUrl) {
-    return `${r2PublicBaseUrl}/${avatarKey.replace(/^\/+/, "")}`;
+  if (normalizedKey && r2PublicBaseUrl) {
+    return normalizeHostForDevice(`${r2PublicBaseUrl}/${normalizedKey}`);
+  }
+
+  if (normalizedKey && apiOrigin) {
+    return `${apiOrigin}/${normalizedKey}`;
   }
 
   return fallbackAvatar(username);
@@ -141,6 +177,7 @@ export const photosApi = {
 
     return data.map((item) => ({
       id: item.photoId,
+      photoRecipientId: item.photoRecipientId,
       imageUrl: resolveImageUrl(item.imageUrl, item.imageKey),
       message: item.caption ?? "",
       sender: {
@@ -148,6 +185,8 @@ export const photosApi = {
         name: item.sender.username,
         avatar: resolveAvatar(item.sender.username, item.sender.avatarKey),
       },
+      myReaction: item.myReaction,
+      reactionSummary: item.reactionSummary,
       timestamp: new Date(item.createdAt),
     }));
   },
@@ -183,6 +222,7 @@ export const photosApi = {
 
     return data.map((item) => ({
       id: item.photoId,
+      photoRecipientId: item.photoRecipientId,
       imageUrl: resolveImageUrl(item.imageUrl, item.imageKey),
       message: item.caption ?? "",
       sender: {
@@ -190,6 +230,8 @@ export const photosApi = {
         name: item.sender.username,
         avatar: resolveAvatar(item.sender.username, item.sender.avatarKey),
       },
+      myReaction: item.myReaction,
+      reactionSummary: item.reactionSummary,
       timestamp: new Date(item.createdAt),
     }));
   },
@@ -203,5 +245,21 @@ export const photosApi = {
 
   async deleteMyPhoto(photoId: string): Promise<void> {
     await httpClient.delete<void>(PHOTOS_ENDPOINTS.byPhotoId(photoId));
+  },
+
+  async reactToPhotoRecipient(
+    photoRecipientId: string,
+    emoji: string,
+  ): Promise<void> {
+    await httpClient.patch<void, { emoji: string }>(
+      PHOTOS_ENDPOINTS.reactionByPhotoRecipientId(photoRecipientId),
+      { emoji },
+    );
+  },
+
+  async removeReactionFromPhotoRecipient(photoRecipientId: string): Promise<void> {
+    await httpClient.delete<void>(
+      PHOTOS_ENDPOINTS.reactionByPhotoRecipientId(photoRecipientId),
+    );
   },
 };

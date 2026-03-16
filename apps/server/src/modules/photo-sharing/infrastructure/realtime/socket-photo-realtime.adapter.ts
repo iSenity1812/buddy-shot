@@ -5,6 +5,7 @@ import type {
   IPhotoRealtimePort,
   PhotoCaptionUpdatedNotification,
   PhotoDeletedNotification,
+  PhotoReactionUpdatedNotification,
   PhotoRecipientNotification,
 } from "../../application/ports/photo-realtime.port";
 
@@ -37,6 +38,21 @@ export class SocketPhotoRealtimeAdapter implements IPhotoRealtimePort {
       socketGateway.emitToUser(userId, SOCKET_EVENT.PHOTO_DELETED, {
         photoId: payload.photoId,
         actorUserId: payload.actorUserId,
+      });
+    }
+  }
+
+  async notifyPhotoReactionUpdated(
+    payload: PhotoReactionUpdatedNotification,
+  ): Promise<void> {
+    for (const userId of payload.audienceUserIds) {
+      socketGateway.emitToUser(userId, SOCKET_EVENT.PHOTO_REACTION_UPDATED, {
+        photoId: payload.photoId,
+        photoRecipientId: payload.photoRecipientId,
+        userId: payload.userId,
+        previousEmoji: payload.previousEmoji ?? null,
+        emoji: payload.emoji,
+        action: payload.action,
       });
     }
   }

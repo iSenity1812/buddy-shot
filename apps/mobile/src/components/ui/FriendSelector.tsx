@@ -59,7 +59,7 @@ const FriendSelector = ({ friends, selected, onSelect }: Props) => {
             >
               <UserAvatar
                 // Đừng quên dùng PUBLIC_R2 như bạn đã định nhé
-                avatarUrl={`${process.env.NEXT_PUBLIC_PUBLIC_R2}/${friend.avatar}`}
+                avatarUrl={friend.avatar}
                 username={friend.name}
                 size={44}
                 ringWidth={selected === friend.id ? 3 : 2}

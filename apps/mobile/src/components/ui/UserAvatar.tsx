@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 
@@ -20,8 +21,14 @@ export default function UserAvatar({
   ringClassName = "border-friend-ring",
   className,
 }: Props) {
+  const [hasImageError, setHasImageError] = useState(false);
   const innerSize = Math.max(size - ringWidth * 2 - 3, 0);
   const normalizedAvatarUrl = avatarUrl?.trim() ?? "";
+  const shouldShowImage = normalizedAvatarUrl.length > 0 && !hasImageError;
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [normalizedAvatarUrl]);
 
   const resolvedInitials = (
     initials?.trim() ||
@@ -37,11 +44,14 @@ export default function UserAvatar({
       className={`rounded-full items-center justify-center ${ringClassName} ${className ?? ""}`}
       style={{ width: size, height: size, borderWidth: ringWidth }}
     >
-      {normalizedAvatarUrl ? (
+      {shouldShowImage ? (
         <Image
           source={{ uri: normalizedAvatarUrl }}
           style={{ width: innerSize, height: innerSize, borderRadius: 9999 }}
           contentFit="cover"
+          onError={() => {
+            setHasImageError(true);
+          }}
         />
       ) : (
         <View

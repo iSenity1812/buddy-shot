@@ -13,13 +13,36 @@ export interface PhotoFeedQuery {
 
 export interface PhotoFeedProjection {
   photoId: string;
+  photoRecipientId: string | null;
   senderId: string;
   senderUsername: string;
   senderAvatarKey: string | null;
   imageKey: string;
   caption: string | null;
+  myReaction: string | null;
+  reactionSummary: Array<{
+    emoji: string;
+    count: number;
+  }>;
   createdAt: Date;
   deliveredAt: Date | null;
+}
+
+export interface ReactToPhotoResult {
+  status: "added" | "changed" | "unchanged";
+  photoId: string;
+  photoRecipientId: string;
+  previousEmoji: string | null;
+  emoji: string;
+  audienceUserIds: string[];
+}
+
+export interface RemoveReactionResult {
+  status: "removed" | "not_found";
+  photoId: string;
+  photoRecipientId: string;
+  emoji: string | null;
+  audienceUserIds: string[];
 }
 
 export interface IPhotoSharingRepository {
@@ -55,6 +78,17 @@ export interface IPhotoSharingRepository {
     userId: string;
     photoId: string;
   }): Promise<string[]>;
+
+  reactToPhotoRecipient(input: {
+    userId: string;
+    photoRecipientId: string;
+    emoji: string;
+  }): Promise<ReactToPhotoResult | null>;
+
+  removeReactionFromPhotoRecipient(input: {
+    userId: string;
+    photoRecipientId: string;
+  }): Promise<RemoveReactionResult | null>;
 
   deleteOwnPhoto(input: { userId: string; photoId: string }): Promise<boolean>;
 }

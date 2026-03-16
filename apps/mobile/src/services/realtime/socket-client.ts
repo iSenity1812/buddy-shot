@@ -4,6 +4,7 @@ import {
   SOCKET_EVENT,
   type PhotoCaptionUpdatedSocketPayload,
   type PhotoDeletedSocketPayload,
+  type PhotoReactionUpdatedSocketPayload,
   type PhotoRecipientSocketPayload,
   type ProfileAvatarChangedSocketPayload,
 } from "./socket-events";
@@ -133,6 +134,19 @@ class RealtimeSocketClient {
     this.socket.on(SOCKET_EVENT.PHOTO_DELETED, handler);
     return () => {
       this.socket?.off(SOCKET_EVENT.PHOTO_DELETED, handler);
+    };
+  }
+
+  onPhotoReactionUpdated(
+    handler: (payload: PhotoReactionUpdatedSocketPayload) => void,
+  ): () => void {
+    if (!this.socket) {
+      return () => undefined;
+    }
+
+    this.socket.on(SOCKET_EVENT.PHOTO_REACTION_UPDATED, handler);
+    return () => {
+      this.socket?.off(SOCKET_EVENT.PHOTO_REACTION_UPDATED, handler);
     };
   }
 

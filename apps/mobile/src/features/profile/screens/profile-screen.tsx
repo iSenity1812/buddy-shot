@@ -115,10 +115,16 @@ export default function ProfileScreen() {
       void loadProfileData();
     });
 
+    const unsubscribeReactionUpdated =
+      realtimeSocketClient.onPhotoReactionUpdated(() => {
+        void loadProfileData();
+      });
+
     return () => {
       unsubscribeAvatarChanged();
       unsubscribeCaptionUpdated();
       unsubscribePhotoDeleted();
+      unsubscribeReactionUpdated();
     };
   }, [loadProfileData]);
 

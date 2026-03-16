@@ -10,9 +10,9 @@ model PhotoRecipient {
   // Optimistic locking
   version Int @default(1)
 
-  photo     Photo     @relation(fields: [photoId], references: [id], onDelete: Cascade)
-  recipient User      @relation("ReceivedPhotos", fields: [recipientId], references: [id], onDelete: Cascade)
-  reaction  Reaction?
+  photo     Photo      @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  recipient User       @relation("ReceivedPhotos", fields: [recipientId], references: [id], onDelete: Cascade)
+  reactions Reaction[]
 
   @@unique([photoId, recipientId])
   @@index([recipientId, createdAt(sort: Desc)]) // history: received photos

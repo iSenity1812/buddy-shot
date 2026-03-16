@@ -34,6 +34,7 @@ export class PhotoSharingDtoMapper {
   ): PhotoFeedItemDto {
     return {
       photoId: projection.photoId,
+      photoRecipientId: projection.photoRecipientId,
       sender: {
         userId: projection.senderId,
         username: projection.senderUsername,
@@ -42,6 +43,8 @@ export class PhotoSharingDtoMapper {
       imageKey: projection.imageKey,
       imageUrl: mediaStorage.getPublicUrl(projection.imageKey),
       caption: projection.caption,
+      myReaction: projection.myReaction,
+      reactionSummary: projection.reactionSummary,
       createdAt: projection.createdAt.toISOString(),
       deliveredAt: projection.deliveredAt
         ? projection.deliveredAt.toISOString()

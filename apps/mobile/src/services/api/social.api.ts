@@ -95,14 +95,25 @@ function resolveAvatar(avatarUrl?: string | null): string {
     return normalizeHostForDevice(`${r2PublicBaseUrl}/${normalizedKey}`);
   }
 
+  if (apiOrigin) {
+    const normalizedKey = avatarUrl.replace(/^\/+/, "");
+    return `${apiOrigin}/${normalizedKey}`;
+  }
+
   return normalizeHostForDevice(avatarUrl);
 }
 
+function fallbackAvatar(username: string): string {
+  return `https://api.dicebear.com/9.x/initials/png?seed=${encodeURIComponent(username)}`;
+}
+
 function mapSocialUserToFriend(user: SocialUserDto): Friend {
+  const resolvedAvatar = resolveAvatar(user.avatarUrl ?? user.avatarKey ?? null);
+
   return {
     id: user.userId,
     name: user.username,
-    avatar: resolveAvatar(user.avatarUrl),
+    avatar: resolvedAvatar || fallbackAvatar(user.username),
   };
 }
 

@@ -1,5 +1,6 @@
 export interface PhotoFeedItemDto {
   photoId: string;
+  photoRecipientId: string | null;
   sender: {
     userId: string;
     username: string;
@@ -8,6 +9,11 @@ export interface PhotoFeedItemDto {
   imageKey: string;
   imageUrl: string;
   caption: string | null;
+  myReaction: string | null;
+  reactionSummary: Array<{
+    emoji: string;
+    count: number;
+  }>;
   createdAt: string;
   deliveredAt: string | null;
 }

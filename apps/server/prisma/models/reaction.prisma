@@ -1,12 +1,16 @@
 model Reaction {
-  id               String   @id @default(uuid())
-  photoRecipientId String   @unique @map("photo_recipient_id") // 1-to-1
-  userId           String   @map("user_id")
-  emoji            String   @db.VarChar(8)
-  createdAt        DateTime @default(now()) @map("created_at")
+  id               String @id @default(uuid())
+  photoRecipientId String @map("photo_recipient_id")
+  userId           String @map("user_id")
+  emoji            String @db.VarChar(8)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   photoRecipient PhotoRecipient @relation(fields: [photoRecipientId], references: [id], onDelete: Cascade)
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([photoRecipientId, userId])
+  @@index([photoRecipientId])
   @@map("reactions")
 }

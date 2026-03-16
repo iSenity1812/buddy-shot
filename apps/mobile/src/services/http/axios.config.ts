@@ -51,7 +51,32 @@ function getExpoHost(): string | undefined {
 function resolveApiBaseUrl(): string {
   const explicitBase = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (explicitBase) {
-    return explicitBase.replace(/\/+$/, "");
+    const normalizedBase = explicitBase.replace(/\/+$/, "");
+
+    try {
+      const parsed = new URL(normalizedBase);
+      const isLocalHostLike =
+        parsed.hostname === "localhost" ||
+        parsed.hostname === "127.0.0.1" ||
+        parsed.hostname === "10.0.2.2";
+
+      if (isLocalHostLike) {
+        const expoHost = getExpoHost();
+        if (expoHost) {
+          parsed.hostname = expoHost;
+          return parsed.toString().replace(/\/+$/, "");
+        }
+
+        if (Platform.OS === "android") {
+          parsed.hostname = "10.0.2.2";
+          return parsed.toString().replace(/\/+$/, "");
+        }
+      }
+    } catch {
+      return normalizedBase;
+    }
+
+    return normalizedBase;
   }
 
   const expoHost = getExpoHost();

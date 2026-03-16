@@ -17,6 +17,8 @@ import { GetAllPhotosUseCase } from "./application/use-cases/get-all-photos.usec
 import { GetMyPhotosUseCase } from "./application/use-cases/get-my-photos.usecase";
 import { UpdateMyPhotoCaptionUseCase } from "./application/use-cases/update-my-photo-caption.usecase";
 import { DeleteMyPhotoUseCase } from "./application/use-cases/delete-my-photo.usecase";
+import { ReactToPhotoUseCase } from "./application/use-cases/react-to-photo.usecase";
+import { RemoveReactionUseCase } from "./application/use-cases/remove-reaction.usecase";
 import "./presentation/photo-sharing.controller";
 
 export const photoSharingModule = new ContainerModule((bind) => {
@@ -69,5 +71,13 @@ export const photoSharingModule = new ContainerModule((bind) => {
 
   bind<DeleteMyPhotoUseCase>(PHOTO_SHARING_KEY.USE_CASE.DELETE_MY_PHOTO)
     .to(DeleteMyPhotoUseCase)
+    .inTransientScope();
+
+  bind<ReactToPhotoUseCase>(PHOTO_SHARING_KEY.USE_CASE.REACT_TO_PHOTO)
+    .to(ReactToPhotoUseCase)
+    .inTransientScope();
+
+  bind<RemoveReactionUseCase>(PHOTO_SHARING_KEY.USE_CASE.REMOVE_REACTION)
+    .to(RemoveReactionUseCase)
     .inTransientScope();
 });

@@ -21,10 +21,23 @@ export interface PhotoDeletedNotification {
   audienceUserIds: string[];
 }
 
+export interface PhotoReactionUpdatedNotification {
+  photoId: string;
+  photoRecipientId: string;
+  userId: string;
+  previousEmoji?: string | null;
+  emoji: string;
+  action: "added" | "changed" | "removed";
+  audienceUserIds: string[];
+}
+
 export interface IPhotoRealtimePort {
   notifyRecipientDelivery(payload: PhotoRecipientNotification): Promise<void>;
   notifyPhotoCaptionUpdated(
     payload: PhotoCaptionUpdatedNotification,
   ): Promise<void>;
   notifyPhotoDeleted(payload: PhotoDeletedNotification): Promise<void>;
+  notifyPhotoReactionUpdated(
+    payload: PhotoReactionUpdatedNotification,
+  ): Promise<void>;
 }
