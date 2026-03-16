@@ -26,7 +26,32 @@ export class R2StorageAdapter implements IStoragePort {
         accessKeyId: envConfig.cloudflare.r2AccessKeyId,
         secretAccessKey: envConfig.cloudflare.r2SecretAccessKey,
       },
+      forcePathStyle: false,
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     });
+
+    this.client.middlewareStack.add(
+      (next) => async (args: any) => {
+        const req = args.request as any;
+        if (req?.headers) {
+          delete req.headers["x-amz-checksum-crc32"];
+          delete req.headers["x-amz-sdk-checksum-algorithm"];
+          delete req.headers["x-amz-trailer"];
+        }
+        // Also strip from query string if present
+        if (req?.query) {
+          delete req.query["x-amz-sdk-checksum-algorithm"];
+          delete req.query["x-amz-checksum-crc32"];
+        }
+        return next(args);
+      },
+      {
+        step: "finalizeRequest",
+        priority: "high",
+        name: "removeChecksumHeaders",
+      },
+    );
   }
 
   /**
@@ -34,7 +59,23 @@ export class R2StorageAdapter implements IStoragePort {
    * Assumes the bucket has a public custom domain configured.
    */
   getPublicUrl(key: string): string {
-    return `${this.publicBaseUrl}/${key}`;
+    const normalizedBase = this.publicBaseUrl.replace(/\/+$/, "");
+    const normalizedKey = key.replace(/^\/+/, "");
+    return `${normalizedBase}/${normalizedKey}`;
+  }
+
+  async putObject(
+    key: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    });
+    await this.client.send(command);
   }
 
   /**
@@ -49,11 +90,10 @@ export class R2StorageAdapter implements IStoragePort {
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: key,
-      ContentType: "image/*", // allow any image type
     });
     return getSignedUrl(this.client, command, {
       expiresIn: expiresInSeconds,
-      signableHeaders: new Set(["host", "content-type"]),
+      signableHeaders: new Set(["host"]),
     });
   }
 
